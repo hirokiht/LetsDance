@@ -53,7 +53,6 @@ public class MainActivity extends AppCompatActivity{
     @Override
     protected void onSaveInstanceState(Bundle outState){
         outState.putBoolean("noBt", btManager == null);
-        finishActivity(REQUEST_ENABLE_BT);
     }
 
     @Override
