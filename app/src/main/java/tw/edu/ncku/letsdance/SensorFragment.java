@@ -21,7 +21,7 @@ import android.widget.Toast;
  */
 public class SensorFragment extends Fragment {
     private ServiceConnection sc;
-    private BleService sensor;
+    private BleService.LocalBinder sensor;
 
     /**
      * Use this factory method to create a new instance of
@@ -51,7 +51,7 @@ public class SensorFragment extends Fragment {
         sc = new ServiceConnection(){
             @Override
             public void onServiceConnected(ComponentName name, IBinder service){
-                sensor = ((BleService.LocalBinder)service).getService();
+                sensor = (BleService.LocalBinder)service;
                 Toast.makeText(getActivity(), "Connected to BLE Service!", Toast.LENGTH_SHORT).show();
             }
             @Override
@@ -59,7 +59,7 @@ public class SensorFragment extends Fragment {
                 Toast.makeText(getActivity(), "Disconnected from BLE Service!", Toast.LENGTH_SHORT).show();
             }
         };
-        getActivity().getApplication().bindService(new Intent(getActivity(),BleService.class).putExtra("mac",mac), sc, Activity.BIND_AUTO_CREATE);
+        getActivity().getApplication().bindService(new Intent(getActivity(), BleService.class).putExtra("mac", mac), sc, Activity.BIND_AUTO_CREATE);
     }
 
     @Override

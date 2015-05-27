@@ -16,19 +16,15 @@ import android.os.IBinder;
 import android.util.Log;
 
 import java.util.Arrays;
-import java.util.UUID;
 
 import static tw.edu.ncku.letsdance.Sensor.*;
 
 public class BleService extends Service {
-    private final IBinder mBinder = new LocalBinder();
-    private BluetoothGatt btGatt = null;
-    private int connectionState = BluetoothProfile.STATE_DISCONNECTED;
+    private BluetoothManager btManager = null;
 
     private final BluetoothGattCallback btGattCb = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            connectionState = newState;
             if (newState == BluetoothProfile.STATE_CONNECTED)
                 gatt.discoverServices();
             super.onConnectionStateChange(gatt, status, newState);
@@ -36,7 +32,7 @@ public class BleService extends Service {
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            enableAccelerometer();
+            enableAccelerometer(gatt);
             super.onServicesDiscovered(gatt, status);
         }
 
@@ -55,23 +51,37 @@ public class BleService extends Service {
     }
 
     public class LocalBinder extends Binder {
+        private BluetoothGatt btGatt = null;
+
+        public LocalBinder(BluetoothGatt bg){
+            super();
+            btGatt = bg;
+        }
+
         BleService getService() {
             return BleService.this;
         }
+
+        void enableAccelerometer(){
+            BleService.this.enableAccelerometer(btGatt);
+        }
+
+        boolean readAccelerometer(){
+            return BleService.this.readAccelerometer(btGatt);
+        }
     }
 
-    public void enableAccelerometer() {
+    public void enableAccelerometer(BluetoothGatt btGatt) {
         BluetoothGattService service = btGatt.getService(ACCELEROMETER.getService());
         BluetoothGattCharacteristic characteristic = service.getCharacteristic(ACCELEROMETER.getConfig());
         characteristic.setValue((int) ACCELEROMETER.getEnableSensorCode(), BluetoothGattCharacteristic.FORMAT_UINT8, 0);
         btGatt.writeCharacteristic(characteristic);
     }
 
-    public boolean readAccelerometer(){
-        if(connectionState != BluetoothProfile.STATE_CONNECTED)
+    public boolean readAccelerometer(BluetoothGatt btGatt){
+        if(btManager.getConnectionState(btGatt.getDevice(), BluetoothProfile.GATT) != BluetoothProfile.STATE_CONNECTED)
             return false;
         BluetoothGattService service = btGatt.getService(ACCELEROMETER.getService());
-        Log.d("readAccelerometer", "service: " + service);
         if(service == null)
             return false;
         BluetoothGattCharacteristic characteristic = service.getCharacteristic(ACCELEROMETER.getData());
@@ -79,8 +89,13 @@ public class BleService extends Service {
     }
 
     @Override
+    public void onCreate(){
+        btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        super.onCreate();
+    }
+
+    @Override
     public IBinder onBind(Intent intent) {
-        final BluetoothManager btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         BluetoothAdapter btAdapter = btManager.getAdapter();
         if(btAdapter == null || !btAdapter.isEnabled())
             throw new UnsupportedOperationException("Bluetooth adapter is not enabled!");    //the Activity should enable adapter first!
@@ -90,8 +105,6 @@ public class BleService extends Service {
         else if(intent.getByteArrayExtra("mac") != null)
             device = btAdapter.getRemoteDevice(intent.getByteArrayExtra("mac"));
         else throw new UnsupportedOperationException("No MAC address specified!");
-        btGatt = device.connectGatt(this,false,btGattCb);
-        connectionState = btManager.getConnectionState(device,BluetoothProfile.GATT);
-        return mBinder;
+        return new LocalBinder(device.connectGatt(this,false,btGattCb));
     }
 }
