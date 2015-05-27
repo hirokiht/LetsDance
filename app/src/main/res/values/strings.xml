@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">LetsDance</string>
-    <string name="hello_world">Hello world!</string>
     <string name="bt_not_enabled">Bluetooth not enabled!</string>
     <string name="wait_for_bt_enable">Waiting for bluetooth to be enabled&#8032;</string>
     <string name="need_bt">This app needs bluetooth to work!</string>

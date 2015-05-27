@@ -26,7 +26,6 @@ public class MainActivity extends AppCompatActivity{
             return;
         setContentView(R.layout.activity_main);
         btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        Log.d("MainActivity.onCreate", "onCreate!");
     }
 
     @Override
