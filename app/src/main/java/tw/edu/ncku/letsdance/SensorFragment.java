@@ -16,7 +16,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import java.util.Arrays;
 
 
 /**
@@ -26,6 +29,7 @@ import android.widget.Toast;
  */
 public class SensorFragment extends Fragment {
     private ServiceConnection sc;
+    private TextView accVal, magVal;
     private BleService.LocalBinder sensor;
 
     /**
@@ -66,8 +70,36 @@ public class SensorFragment extends Fragment {
         };
         getActivity().getApplication().bindService(new Intent(getActivity(), BleService.class)
                 .putExtra("mac", mac), sc, Activity.BIND_AUTO_CREATE);
-        LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new LocalBroadcastReceiver()
-                ,new IntentFilter("btCb"));
+        LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new BroadcastReceiver(){
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String type = intent.getStringExtra("type");
+                Log.d("onReceive","broadcast received, type: " + type);
+                if(type.equals("ready") && intent.getBooleanExtra(type, false)){
+                    sensor.enableAccelerometer();
+                    sensor.enableMagnetometer();
+                    sensor.setMagnetonmeterNotification(true);
+                }else if(type.equals("read")){
+                    Sensor s = (Sensor) intent.getSerializableExtra(type);
+                    byte[] data = intent.getByteArrayExtra("data");
+                    Log.d("onReceive", "data: "+Arrays.toString(data));
+                    Point3D p = s.convert(data);
+                    if(s == Sensor.ACCELEROMETER)
+                        accVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
+                    else if(s == Sensor.MAGNETOMETER)
+                        magVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
+                }else if(type.equals("notify")){
+                    Sensor s = (Sensor) intent.getSerializableExtra(type);
+                    byte[] data = intent.getByteArrayExtra("data");
+                    Log.d("onReceive", "notify: "+Arrays.toString(data));
+                    Point3D p = s.convert(data);
+                    if(s == Sensor.ACCELEROMETER)
+                        accVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
+                    else if(s == Sensor.MAGNETOMETER)
+                        magVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
+                }
+            }
+        } ,new IntentFilter("btCb"));
     }
 
     @Override
@@ -77,33 +109,25 @@ public class SensorFragment extends Fragment {
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_sensor, container, false);
-        final Button button = (Button) view.findViewById(R.id.button);
-        button.setOnClickListener(new View.OnClickListener() {
+        final Button getAccButton = (Button) view.findViewById(R.id.getAccButton),
+                getMagButton = (Button) view.findViewById(R.id.getMagButton);
+        accVal = (TextView) view.findViewById(R.id.AccValLabel);
+        magVal = (TextView) view.findViewById(R.id.MagValLabel);
+        getAccButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 sensor.readAccelerometer();
             }
         });
-        return view;
-    }
-
-    private class LocalBroadcastReceiver extends BroadcastReceiver{
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String type = intent.getStringExtra("type");
-            Log.d("onReceive","broadcast received, type: " + type);
-            if(type.equals("ready") && intent.getBooleanExtra(type, false))
-                sensor.enableAccelerometer();
-            else if(type.equals("read")){
-                Sensor sensor = (Sensor) intent.getSerializableExtra(type);
-                byte[] data = intent.getByteArrayExtra("data");
-                Point3D point = sensor.convert(data);
-                Log.d("onReceive","data received: "+point);
+        getMagButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sensor.readMagnetometer();
             }
-        }
+        });
+        return view;
     }
 }
