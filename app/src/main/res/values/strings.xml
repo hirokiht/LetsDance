@@ -3,5 +3,7 @@
     <string name="hello_world">Hello world!</string>
     <string name="bt_not_enabled">Bluetooth not enabled!</string>
     <string name="wait_for_bt_enable">Waiting for bluetooth to be enabled&#8032;</string>
+    <string name="need_bt">This app needs bluetooth to work!</string>
+    <string name="bt_not_found">This app uses bluetooth to connect to the gloves, click OK to close.</string>
     <string name="action_settings">Settings</string>
 </resources>

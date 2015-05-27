@@ -13,11 +13,11 @@ public class AlertDialogFragment extends DialogFragment {
      *
      * @return A new instance of fragment AlertDialogFragment.
      */
-    public static AlertDialogFragment newInstance(String title, String message) {
+    public static AlertDialogFragment newInstance(int title, int message) {
         AlertDialogFragment fragment = new AlertDialogFragment();
         Bundle args = new Bundle();
-        args.putString("title", title);
-        args.putString("msg", message);
+        args.putInt("title", title);
+        args.putInt("msg", message);
         fragment.setArguments(args);
         return fragment;
     }
@@ -31,7 +31,7 @@ public class AlertDialogFragment extends DialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        String title = getArguments().getString("title"), message = getArguments().getString("msg");
+        String title = getString(getArguments().getInt("title")), message = getString(getArguments().getInt("msg"));
         return new AlertDialog.Builder(getActivity()).setTitle(title).setMessage(message)
             .setNeutralButton("OK", new DialogInterface.OnClickListener() {
                 @Override

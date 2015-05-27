@@ -33,14 +33,15 @@ public class MainActivity extends AppCompatActivity{
     protected void onStart(){
         if(btManager == null){
             super.onStart();
-            AlertDialogFragment.newInstance("This app needs bluetooth to work!","This app uses bluetooth to connect to the gloves, click OK to close.")
+            AlertDialogFragment.newInstance(R.string.need_bt, R.string.bt_not_found)
                     .show(getFragmentManager(), "dialog");
             return;
         }
         final BluetoothAdapter btAdapter = btManager.getAdapter();
         if(btAdapter == null || !btAdapter.isEnabled()) {
             Log.d("MainActivity.onStart", "Trying to enable bt!");
-            startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP), REQUEST_ENABLE_BT);
+            startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP), REQUEST_ENABLE_BT);
             waitForBt = ProgressDialogFragment.newInstance(R.string.bt_not_enabled, R.string.wait_for_bt_enable);
             waitForBt.show(getFragmentManager(), "dialog");
         }else{
@@ -71,7 +72,7 @@ public class MainActivity extends AppCompatActivity{
                 addSensorFragment(macA);
             }else{
                 btManager = null;
-                AlertDialogFragment.newInstance("This app needs bluetooth to work!","This app uses bluetooth to connect to the gloves, click OK to close.")
+                AlertDialogFragment.newInstance(R.string.need_bt, R.string.bt_not_found)
                         .show(getFragmentManager(),"dialog");
             }
         }
