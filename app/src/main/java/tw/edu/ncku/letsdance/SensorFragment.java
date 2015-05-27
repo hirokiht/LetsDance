@@ -17,9 +17,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
-
-import java.util.Arrays;
 
 
 /**
@@ -30,7 +27,7 @@ import java.util.Arrays;
 public class SensorFragment extends Fragment {
     private ServiceConnection sc;
     private TextView accVal, magVal;
-    private BleService.LocalBinder sensor;
+    private BleService.LocalBinder serviceBinder;
 
     /**
      * Use this factory method to create a new instance of
@@ -60,12 +57,11 @@ public class SensorFragment extends Fragment {
         sc = new ServiceConnection(){
             @Override
             public void onServiceConnected(ComponentName name, IBinder service){
-                sensor = (BleService.LocalBinder)service;
-                Toast.makeText(getActivity(), "Connected to BLE Service!", Toast.LENGTH_SHORT).show();
+                serviceBinder = (BleService.LocalBinder)service;
             }
             @Override
             public void onServiceDisconnected(ComponentName name){
-                Toast.makeText(getActivity(), "Disconnected from BLE Service!", Toast.LENGTH_SHORT).show();
+                serviceBinder = null;
             }
         };
         getActivity().getApplication().bindService(new Intent(getActivity(), BleService.class)
@@ -73,16 +69,16 @@ public class SensorFragment extends Fragment {
         LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new BroadcastReceiver(){
             @Override
             public void onReceive(Context context, Intent intent) {
+                if(!serviceBinder.getDevice().equals(intent.getParcelableExtra("btDevice")))
+                    return;
                 String type = intent.getStringExtra("type");
-                Log.d("onReceive","broadcast received, type: " + type);
                 if(type.equals("ready") && intent.getBooleanExtra(type, false)){
-                    sensor.enableAccelerometer();
-                    sensor.enableMagnetometer();
-                    sensor.setMagnetonmeterNotification(true);
+                    serviceBinder.enableAccelerometer();
+                    serviceBinder.enableMagnetometer();
+                    serviceBinder.setMagnetonmeterNotification(true);
                 }else if(type.equals("read")){
                     Sensor s = (Sensor) intent.getSerializableExtra(type);
                     byte[] data = intent.getByteArrayExtra("data");
-                    Log.d("onReceive", "data: "+Arrays.toString(data));
                     Point3D p = s.convert(data);
                     if(s == Sensor.ACCELEROMETER)
                         accVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
@@ -91,13 +87,12 @@ public class SensorFragment extends Fragment {
                 }else if(type.equals("notify")){
                     Sensor s = (Sensor) intent.getSerializableExtra(type);
                     byte[] data = intent.getByteArrayExtra("data");
-                    Log.d("onReceive", "notify: "+Arrays.toString(data));
                     Point3D p = s.convert(data);
                     if(s == Sensor.ACCELEROMETER)
                         accVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
                     else if(s == Sensor.MAGNETOMETER)
                         magVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
-                }
+                }else Log.d("onReceive","broadcast received, type: " + type);
             }
         } ,new IntentFilter("btCb"));
     }
@@ -119,13 +114,13 @@ public class SensorFragment extends Fragment {
         getAccButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                sensor.readAccelerometer();
+                serviceBinder.readAccelerometer();
             }
         });
         getMagButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                sensor.readMagnetometer();
+                serviceBinder.readMagnetometer();
             }
         });
         return view;
