@@ -13,14 +13,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
-import android.util.Log;
-
-import java.util.Arrays;
+import android.support.v4.content.LocalBroadcastManager;
 
 import static tw.edu.ncku.letsdance.Sensor.*;
 
 public class BleService extends Service {
     private BluetoothManager btManager = null;
+    private LocalBroadcastManager bcastManager = null;
 
     private final BluetoothGattCallback btGattCb = new BluetoothGattCallback() {
         @Override
@@ -28,21 +27,23 @@ public class BleService extends Service {
             if (newState == BluetoothProfile.STATE_CONNECTED)
                 gatt.discoverServices();
             super.onConnectionStateChange(gatt, status, newState);
+            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice",gatt.getDevice())
+                    .putExtra("type","connection").putExtra("connection", status));
         }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            enableAccelerometer(gatt);
+            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
+                    .putExtra("type", "ready").putExtra("ready", status == BluetoothGatt.GATT_SUCCESS));
             super.onServicesDiscovered(gatt, status);
         }
 
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            Log.d("onCharRead","read: "+characteristic.getUuid());
             byte[] val = characteristic.getValue();
-            Log.d("onCharRead", "read: " + Arrays.toString(val));
-            Point3D p = Sensor.getFromDataUuid(characteristic.getUuid()).convert(val);
-            Log.d("onCharRead","read: ("+p.x+','+p.y+','+p.z+')');
+            Sensor sensor = Sensor.getFromDataUuid(characteristic.getUuid());
+            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
+                    .putExtra("type", "read").putExtra("read", sensor).putExtra("data", val));
             super.onCharacteristicRead(gatt, characteristic, status);
         }
     };
@@ -56,10 +57,6 @@ public class BleService extends Service {
         public LocalBinder(BluetoothGatt bg){
             super();
             btGatt = bg;
-        }
-
-        BleService getService() {
-            return BleService.this;
         }
 
         void enableAccelerometer(){
@@ -79,8 +76,6 @@ public class BleService extends Service {
     }
 
     public boolean readAccelerometer(BluetoothGatt btGatt){
-        if(btManager.getConnectionState(btGatt.getDevice(), BluetoothProfile.GATT) != BluetoothProfile.STATE_CONNECTED)
-            return false;
         BluetoothGattService service = btGatt.getService(ACCELEROMETER.getService());
         if(service == null)
             return false;
@@ -91,6 +86,7 @@ public class BleService extends Service {
     @Override
     public void onCreate(){
         btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        bcastManager = LocalBroadcastManager.getInstance(this);
         super.onCreate();
     }
 

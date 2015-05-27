@@ -1,12 +1,17 @@
 package tw.edu.ncku.letsdance;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.app.Fragment;
 import android.os.IBinder;
+import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -59,7 +64,10 @@ public class SensorFragment extends Fragment {
                 Toast.makeText(getActivity(), "Disconnected from BLE Service!", Toast.LENGTH_SHORT).show();
             }
         };
-        getActivity().getApplication().bindService(new Intent(getActivity(), BleService.class).putExtra("mac", mac), sc, Activity.BIND_AUTO_CREATE);
+        getActivity().getApplication().bindService(new Intent(getActivity(), BleService.class)
+                .putExtra("mac", mac), sc, Activity.BIND_AUTO_CREATE);
+        LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new LocalBroadcastReceiver()
+                ,new IntentFilter("btCb"));
     }
 
     @Override
@@ -83,4 +91,19 @@ public class SensorFragment extends Fragment {
         return view;
     }
 
+    private class LocalBroadcastReceiver extends BroadcastReceiver{
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String type = intent.getStringExtra("type");
+            Log.d("onReceive","broadcast received, type: " + type);
+            if(type.equals("ready") && intent.getBooleanExtra(type, false))
+                sensor.enableAccelerometer();
+            else if(type.equals("read")){
+                Sensor sensor = (Sensor) intent.getSerializableExtra(type);
+                byte[] data = intent.getByteArrayExtra("data");
+                Point3D point = sensor.convert(data);
+                Log.d("onReceive","data received: "+point);
+            }
+        }
+    }
 }
