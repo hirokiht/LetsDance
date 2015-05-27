@@ -81,6 +81,11 @@ public class Point3D {
   }
 
   @Override
+  public String toString(){
+    return "("+x+','+y+','+z+')';
+  }
+
+  @Override
   public boolean equals(Object obj) {
     if (this == obj)
       return true;
