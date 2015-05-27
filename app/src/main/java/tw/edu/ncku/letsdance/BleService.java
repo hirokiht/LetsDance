@@ -131,7 +131,11 @@ public class BleService extends Service {
             }, new IntentFilter("btCb"));
         }
 
-        boolean enableSensor(final Sensor sensor){
+        public BluetoothDevice getDevice(){
+            return btGatt.getDevice();
+        }
+
+        public boolean enableSensor(final Sensor sensor){
             if(!busy)
                 return busy = BleService.this.enableSensor(btGatt, sensor);
             else return requests.offer(new BtRequest("enable"+sensor.name()) {
@@ -142,7 +146,7 @@ public class BleService extends Service {
             });
         }
 
-        boolean readSensor(final Sensor sensor){
+        public boolean readSensor(final Sensor sensor){
             if(!busy)
                 return busy = BleService.this.readSensor(btGatt, sensor);
             else return requests.offer(new BtRequest("read"+sensor.name()) {
@@ -153,7 +157,7 @@ public class BleService extends Service {
             });
         }
 
-        boolean setSensorNotification(final Sensor sensor, final boolean notify){
+        public boolean setSensorNotification(final Sensor sensor, final boolean notify){
             if(!busy)
                 return busy = BleService.this.setSensorNotification(btGatt, sensor, notify);
             else return requests.offer(new BtRequest("set"+sensor.name()+"Notification") {
@@ -164,27 +168,27 @@ public class BleService extends Service {
             });
         }
 
-        boolean enableAccelerometer(){
+        public boolean enableAccelerometer(){
             return enableSensor(ACCELEROMETER);
         }
 
-        boolean readAccelerometer(){
+        public boolean readAccelerometer(){
             return readSensor(ACCELEROMETER);
         }
 
-        boolean setAccelerometerNotification(final boolean notify){
+        public boolean setAccelerometerNotification(final boolean notify){
             return setSensorNotification(ACCELEROMETER,notify);
         }
 
-        boolean enableMagnetometer(){
+        public boolean enableMagnetometer(){
             return enableSensor(MAGNETOMETER);
         }
 
-        boolean readMagnetometer(){
+        public boolean readMagnetometer(){
             return readSensor(MAGNETOMETER);
         }
 
-        boolean setMagnetonmeterNotification(final boolean notify){
+        public boolean setMagnetonmeterNotification(final boolean notify){
             return setSensorNotification(MAGNETOMETER,notify);
         }
     }
