@@ -82,7 +82,7 @@ public class BleService extends Service {
         @Override
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             byte[] val = descriptor.getValue();
-            Sensor sensor = Sensor.getFromDataUuid(descriptor.getUuid());
+            Sensor sensor = Sensor.getFromDataUuid(descriptor.getCharacteristic().getUuid());
             bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "readDesc").putExtra("readDesc", sensor).putExtra("data", val));
             super.onDescriptorRead(gatt, descriptor, status);
@@ -90,7 +90,7 @@ public class BleService extends Service {
 
         @Override
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            Sensor sensor = Sensor.getFromDataUuid(descriptor.getUuid());
+            Sensor sensor = Sensor.getFromDataUuid(descriptor.getCharacteristic().getUuid());
             bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "writeDesc").putExtra("writeDesc", sensor)
                     .putExtra("status", status == BluetoothGatt.GATT_SUCCESS));
