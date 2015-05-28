@@ -25,7 +25,7 @@ import java.util.UUID;
 import static tw.edu.ncku.letsdance.Sensor.*;
 
 public class BleService extends Service {
-    private BluetoothManager btManager = null;
+    private static BluetoothManager btManager = null;
     private LocalBroadcastManager bcastManager = null;
 
     private final BluetoothGattCallback btGattCb = new BluetoothGattCallback() {
@@ -224,7 +224,8 @@ public class BleService extends Service {
 
     @Override
     public void onCreate(){
-        btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        if(btManager == null)
+            btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         bcastManager = LocalBroadcastManager.getInstance(this);
         super.onCreate();
     }
