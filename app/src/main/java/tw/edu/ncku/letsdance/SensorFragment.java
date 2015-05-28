@@ -76,22 +76,14 @@ public class SensorFragment extends Fragment {
                     serviceBinder.enableAccelerometer();
                     serviceBinder.enableMagnetometer();
                     serviceBinder.setMagnetonmeterNotification(true);
-                }else if(type.equals("read")){
+                }else if(type.equals("read") || type.equals("notify")){
                     Sensor s = (Sensor) intent.getSerializableExtra(type);
                     byte[] data = intent.getByteArrayExtra("data");
-                    Point3D p = s.convert(data);
+                    float[] p = s.convert(data);
                     if(s == Sensor.ACCELEROMETER)
-                        accVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
+                        accVal.setText("(" + p[0] + ",\n" + p[1] + ",\n" + p[2]+")");
                     else if(s == Sensor.MAGNETOMETER)
-                        magVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
-                }else if(type.equals("notify")){
-                    Sensor s = (Sensor) intent.getSerializableExtra(type);
-                    byte[] data = intent.getByteArrayExtra("data");
-                    Point3D p = s.convert(data);
-                    if(s == Sensor.ACCELEROMETER)
-                        accVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
-                    else if(s == Sensor.MAGNETOMETER)
-                        magVal.setText("(" + p.x + ",\n" + p.y + ",\n" + p.z+")");
+                        magVal.setText("(" + p[0] + ",\n" + p[1] + ",\n" + p[2]+")");
                 }else Log.d("onReceive","broadcast received, type: " + type);
             }
         } ,new IntentFilter("btCb"));

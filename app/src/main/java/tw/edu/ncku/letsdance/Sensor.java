@@ -71,7 +71,7 @@ import android.bluetooth.BluetoothGattCharacteristic;
 public enum Sensor {
   IR_TEMPERATURE(UUID_IRT_SERV, UUID_IRT_DATA, UUID_IRT_CONF) {
     @Override
-    public Point3D convert(final byte [] value) {
+    public float[] convert(final byte [] value) {
 
       /*
        * The IR Temperature sensor produces two measurements; Object ( AKA target or IR) Temperature, and Ambient ( AKA die ) temperature.
@@ -81,7 +81,7 @@ public enum Sensor {
 
       double ambient = extractAmbientTemperature(value);
       double target = extractTargetTemperature(value, ambient);
-      return new Point3D(ambient, target, 0);
+      return new float[]{(float)ambient, (float)target};
     }
 
     private double extractAmbientTemperature(byte [] v) {
@@ -116,7 +116,7 @@ public enum Sensor {
 
   ACCELEROMETER(UUID_ACC_SERV, UUID_ACC_DATA, UUID_ACC_CONF,(byte)3) {
   	@Override
-  	public Point3D convert(final byte[] value) {
+  	public float[] convert(final byte[] value) {
   		/*
   		 * The accelerometer has the range [-2g, 2g] with unit (1/64)g.
   		 * To convert from unit (1/64)g to unit g we divide by 64.
@@ -133,24 +133,13 @@ public enum Sensor {
   			int x = (value[0]<<8) + value[1];
   			int y = (value[2]<<8) + value[3];
   			int z = (value[4]<<8) + value[5]; 
-  			return new Point3D(x / SCALE, y / SCALE, z / SCALE);
+  			return new float[]{x / SCALE, y / SCALE, z / SCALE};
   		} else {
-  			Point3D v;
   			Integer x = (int) value[0];
   			Integer y = (int) value[1];
   			Integer z = (int) value[2] * -1;
-  			
-  			if (true)//da.firmwareRevision().contains("1.5"))
-  			{
-  				// Range 8G
-    			final float SCALE = (float) 64.0;
-  				v = new Point3D(x / SCALE, y / SCALE, z / SCALE);
-  			} else {
-  				// Range 2G
-    			final float SCALE = (float) 16.0;
-  				v = new Point3D(x / SCALE, y / SCALE, z / SCALE);
-  			}
-  			return v;
+            final float SCALE = (true/*da.firmwareRevision().contains("1.5")*/)? 64.0f : 16.0f;
+            return new float[]{x / SCALE, y / SCALE, z / SCALE};
   		}
 
   	}
@@ -158,33 +147,33 @@ public enum Sensor {
 
   HUMIDITY(UUID_HUM_SERV, UUID_HUM_DATA, UUID_HUM_CONF) {
     @Override
-    public Point3D convert(final byte[] value) {
+    public float[] convert(final byte[] value) {
       int a = shortUnsignedAtOffset(value, 2);
       // bits [1..0] are status bits and need to be cleared according
       // to the user guide, but the iOS code doesn't bother. It should
       // have minimal impact.
       a = a - (a % 4);
 
-      return new Point3D((-6f) + 125f * (a / 65535f), 0, 0);
+      return new float[]{(-6f) + 125f * (a / 65535f)};
     }
   },
 
   MAGNETOMETER(UUID_MAG_SERV, UUID_MAG_DATA, UUID_MAG_CONF) {
     @Override
-    public Point3D convert(final byte [] value) {
+    public float[] convert(final byte [] value) {
       Point3D mcal = MagnetometerCalibrationCoefficients.INSTANCE.val;
       // Multiply x and y with -1 so that the values correspond with the image in the app
       float x = shortSignedAtOffset(value, 0) * (2000f / 65536f) * -1;
       float y = shortSignedAtOffset(value, 2) * (2000f / 65536f) * -1;
       float z = shortSignedAtOffset(value, 4) * (2000f / 65536f);
       
-			return new Point3D(x - mcal.x, y - mcal.y, z - mcal.z);
+      return new float[]{x - (float)mcal.x, y - (float)mcal.y, z - (float)mcal.z};
     }
   },
 
   LUXOMETER(UUID_OPT_SERV, UUID_OPT_DATA, UUID_OPT_CONF) {
     @Override
-    public Point3D convert(final byte [] value) {
+    public float[] convert(final byte [] value) {
       int mantissa;
       int exponent;
       Integer sfloat= shortUnsignedAtOffset(value, 0);
@@ -192,29 +181,28 @@ public enum Sensor {
       mantissa = sfloat & 0x0FFF;
       exponent = (sfloat >> 12) & 0xFF;
 
-      double output;
       double magnitude = pow(2.0f, exponent);
-      output = (mantissa * magnitude);
+      float output = (float)(mantissa * magnitude);
 
-			return new Point3D(output / 100.0f, 0, 0);
+			return new float[]{output / 100.0f};
     }
   },
 
   GYROSCOPE(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, (byte)7) {
     @Override
-    public Point3D convert(final byte [] value) {
+    public float[] convert(final byte [] value) {
 
       float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
       float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
       float z = shortSignedAtOffset(value, 4) * (500f / 65536f);
       
-      return new Point3D(x,y,z);      
+      return new float[]{x,y,z};
     }
   },
 
   BAROMETER(SensorTagGatt.UUID_BAR_SERV, SensorTagGatt.UUID_BAR_DATA, SensorTagGatt.UUID_BAR_CONF) {
     @Override
-    public Point3D convert(final byte [] value) {
+    public float[] convert(final byte [] value) {
 
     	if (false){//DeviceActivity.getInstance().isSensorTag2()) {
             int mantissa;
@@ -224,16 +212,15 @@ public enum Sensor {
             mantissa = sfloat & 0x0FFF;
             exponent = (sfloat >> 12) & 0xFF;
 
-            double output;
             double magnitude = pow(2.0f, exponent);
-            output = (mantissa * magnitude);
+            float output = (float)(mantissa * magnitude);
 
-            return new Point3D(output / 100.0f, 0, 0);
+            return new float[]{output / 100.0f};
     	} else {
     		List<Integer> barometerCalibrationCoefficients = BarometerCalibrationCoefficients.INSTANCE.barometerCalibrationCoefficients;
     		if (barometerCalibrationCoefficients == null) {
     			// Log.w("Sensor", "Data notification arrived for barometer before it was calibrated.");
-    			return new Point3D(0,0,0);
+    			return null;
     		}
 
     		final int[] c; // Calibration coefficients
@@ -255,7 +242,7 @@ public enum Sensor {
     		O = c[5] * pow(2, 14) + c[6] * t_r / pow(2, 3) + ((c[7] * t_r / pow(2, 15)) * t_r) / pow(2, 4);
     		p_a = (S * p_r + O) / pow(2, 14);
 
-    		return new Point3D(p_a,0,0);
+    		return new float[]{p_a.floatValue()};
     	}
     }
   },
@@ -314,7 +301,7 @@ public enum Sensor {
     throw new UnsupportedOperationException("Error: the individual enum classes are supposed to override this method.");
   }
 
-  public Point3D convert(byte[] value) {
+  public float[] convert(byte[] value) {
     throw new UnsupportedOperationException("Error: the individual enum classes are supposed to override this method.");
   }
 
