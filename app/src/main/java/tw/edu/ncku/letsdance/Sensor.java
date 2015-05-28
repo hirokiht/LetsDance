@@ -69,6 +69,7 @@ import android.bluetooth.BluetoothGattCharacteristic;
  * characteristic-containing-measurement.
  */
 public enum Sensor {
+
   IR_TEMPERATURE(UUID_IRT_SERV, UUID_IRT_DATA, UUID_IRT_CONF) {
     @Override
     public float[] convert(final byte [] value) {
@@ -161,13 +162,13 @@ public enum Sensor {
   MAGNETOMETER(UUID_MAG_SERV, UUID_MAG_DATA, UUID_MAG_CONF) {
     @Override
     public float[] convert(final byte [] value) {
-      Point3D mcal = MagnetometerCalibrationCoefficients.INSTANCE.val;
+      float[] mcal = MagnetometerCalibrationCoefficients;
       // Multiply x and y with -1 so that the values correspond with the image in the app
       float x = shortSignedAtOffset(value, 0) * (2000f / 65536f) * -1;
       float y = shortSignedAtOffset(value, 2) * (2000f / 65536f) * -1;
       float z = shortSignedAtOffset(value, 4) * (2000f / 65536f);
       
-      return new float[]{x - (float)mcal.x, y - (float)mcal.y, z - (float)mcal.z};
+      return new float[]{x - mcal[0], y - mcal[1], z - mcal[2]};
     }
   },
 
@@ -217,7 +218,6 @@ public enum Sensor {
 
             return new float[]{output / 100.0f};
     	} else {
-    		List<Integer> barometerCalibrationCoefficients = BarometerCalibrationCoefficients.INSTANCE.barometerCalibrationCoefficients;
     		if (barometerCalibrationCoefficients == null) {
     			// Log.w("Sensor", "Data notification arrived for barometer before it was calibrated.");
     			return null;
@@ -304,7 +304,9 @@ public enum Sensor {
   public float[] convert(byte[] value) {
     throw new UnsupportedOperationException("Error: the individual enum classes are supposed to override this method.");
   }
-
+    public static List<Integer> barometerCalibrationCoefficients;
+    public static double heightCalibration;
+    public static float[] MagnetometerCalibrationCoefficients = new float[]{0f,0f,0f};
 	private final UUID service, data, config;
 	private byte enableCode; // See getEnableSensorCode for explanation.
 	public static final byte DISABLE_SENSOR_CODE = 0;
