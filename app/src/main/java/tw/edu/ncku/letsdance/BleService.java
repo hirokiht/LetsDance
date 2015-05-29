@@ -168,6 +168,17 @@ public class BleService extends Service {
             });
         }
 
+        public boolean setSensorNotificationPeriod(final Sensor sensor, final int period){
+            if(!busy)
+                return busy = BleService.this.setSensorNotificationPeriod(btGatt, sensor, period);
+            else return requests.offer(new BtRequest("set"+sensor.name()+"NotificationPeriod") {
+                @Override
+                void execute() {
+                    BleService.this.setSensorNotificationPeriod(btGatt, sensor, period);
+                }
+            });
+        }
+
         public boolean enableAccelerometer(){
             return enableSensor(ACCELEROMETER);
         }
@@ -180,6 +191,10 @@ public class BleService extends Service {
             return setSensorNotification(ACCELEROMETER,notify);
         }
 
+        public boolean setAccelerometerNotificationPeriod(final int period){
+            return setSensorNotificationPeriod(ACCELEROMETER,period/10);
+        }
+
         public boolean enableMagnetometer(){
             return enableSensor(MAGNETOMETER);
         }
@@ -188,8 +203,12 @@ public class BleService extends Service {
             return readSensor(MAGNETOMETER);
         }
 
-        public boolean setMagnetonmeterNotification(final boolean notify){
+        public boolean setMagnetometerNotification(final boolean notify){
             return setSensorNotification(MAGNETOMETER,notify);
+        }
+
+        public boolean setMagnetometerNotificationPeriod(final int period){
+            return setSensorNotificationPeriod(MAGNETOMETER,period/10);
         }
     }
 
@@ -220,6 +239,15 @@ public class BleService extends Service {
             descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
             return btGatt.writeDescriptor(descriptor);
         }else return false;
+    }
+
+    public boolean setSensorNotificationPeriod(BluetoothGatt btGatt, Sensor sensor, int period){
+        BluetoothGattService service = btGatt.getService(sensor.getService());
+        BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getPeriod());
+        if(characteristic == null)
+            return false;
+        characteristic.setValue(period, BluetoothGattCharacteristic.FORMAT_UINT8, 0);
+        return btGatt.writeCharacteristic(characteristic);
     }
 
     @Override

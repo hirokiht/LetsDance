@@ -70,7 +70,7 @@ import android.bluetooth.BluetoothGattCharacteristic;
  */
 public enum Sensor {
 
-  IR_TEMPERATURE(UUID_IRT_SERV, UUID_IRT_DATA, UUID_IRT_CONF) {
+  IR_TEMPERATURE(UUID_IRT_SERV, UUID_IRT_DATA, UUID_IRT_CONF, UUID_IRT_PERI) {
     @Override
     public float[] convert(final byte [] value) {
 
@@ -115,7 +115,7 @@ public enum Sensor {
     }
   },
 
-  ACCELEROMETER(UUID_ACC_SERV, UUID_ACC_DATA, UUID_ACC_CONF,(byte)3) {
+  ACCELEROMETER(UUID_ACC_SERV, UUID_ACC_DATA, UUID_ACC_CONF, UUID_ACC_PERI, (byte)3) {
   	@Override
   	public float[] convert(final byte[] value) {
   		/*
@@ -146,7 +146,7 @@ public enum Sensor {
   	}
   },
 
-  HUMIDITY(UUID_HUM_SERV, UUID_HUM_DATA, UUID_HUM_CONF) {
+  HUMIDITY(UUID_HUM_SERV, UUID_HUM_DATA, UUID_HUM_CONF, UUID_HUM_PERI){
     @Override
     public float[] convert(final byte[] value) {
       int a = shortUnsignedAtOffset(value, 2);
@@ -159,7 +159,7 @@ public enum Sensor {
     }
   },
 
-  MAGNETOMETER(UUID_MAG_SERV, UUID_MAG_DATA, UUID_MAG_CONF) {
+  MAGNETOMETER(UUID_MAG_SERV, UUID_MAG_DATA, UUID_MAG_CONF, UUID_MAG_PERI) {
     @Override
     public float[] convert(final byte [] value) {
       float[] mcal = MagnetometerCalibrationCoefficients;
@@ -172,7 +172,7 @@ public enum Sensor {
     }
   },
 
-  LUXOMETER(UUID_OPT_SERV, UUID_OPT_DATA, UUID_OPT_CONF) {
+  LUXOMETER(UUID_OPT_SERV, UUID_OPT_DATA, UUID_OPT_CONF, UUID_OPT_PERI) {
     @Override
     public float[] convert(final byte [] value) {
       int mantissa;
@@ -189,7 +189,7 @@ public enum Sensor {
     }
   },
 
-  GYROSCOPE(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, (byte)7) {
+  GYROSCOPE(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)7) {
     @Override
     public float[] convert(final byte [] value) {
 
@@ -201,7 +201,7 @@ public enum Sensor {
     }
   },
 
-  BAROMETER(SensorTagGatt.UUID_BAR_SERV, SensorTagGatt.UUID_BAR_DATA, SensorTagGatt.UUID_BAR_CONF) {
+  BAROMETER(UUID_BAR_SERV, UUID_BAR_DATA, UUID_BAR_CONF, UUID_BAR_PERI) {
     @Override
     public float[] convert(final byte [] value) {
 
@@ -247,7 +247,7 @@ public enum Sensor {
     }
   },
 
-  SIMPLE_KEYS(UUID_KEY_SERV, UUID_KEY_DATA, null) {
+  SIMPLE_KEYS(UUID_KEY_SERV, UUID_KEY_DATA, null, null) {
     @Override
     public byte convertKeys(final byte value) {
   		/* Key mapping for SensorTagGatt:
@@ -307,7 +307,7 @@ public enum Sensor {
     public static List<Integer> barometerCalibrationCoefficients;
     public static double heightCalibration;
     public static float[] MagnetometerCalibrationCoefficients = new float[]{0f,0f,0f};
-	private final UUID service, data, config;
+	private final UUID service, data, config, period;
 	private byte enableCode; // See getEnableSensorCode for explanation.
 	public static final byte DISABLE_SENSOR_CODE = 0;
 	public static final byte ENABLE_SENSOR_CODE = 1;
@@ -317,20 +317,22 @@ public enum Sensor {
 	 * Constructor called by the Gyroscope and Accelerometer because it more than a boolean enable
 	 * code.
 	 */
-  private Sensor(UUID service, UUID data, UUID config, byte enableCode) {
+  private Sensor(UUID service, UUID data, UUID config, UUID period, byte enableCode) {
     this.service = service;
     this.data = data;
     this.config = config;
+    this.period = period;
     this.enableCode = enableCode;
   }
 
   /**
    * Constructor called by all the sensors except Gyroscope
    * */
-  private Sensor(UUID service, UUID data, UUID config) {
+  private Sensor(UUID service, UUID data, UUID config, UUID period) {
     this.service = service;
     this.data = data;
     this.config = config;
+    this.period = period;
     this.enableCode = ENABLE_SENSOR_CODE; // This is the sensor enable code for all sensors except the gyroscope
   }
 
@@ -352,6 +354,8 @@ public enum Sensor {
   public UUID getConfig() {
     return config;
   }
+
+  public UUID getPeriod() {return period; }
 
   public static Sensor getFromDataUuid(UUID uuid) {
     for (Sensor s : Sensor.values()) {
