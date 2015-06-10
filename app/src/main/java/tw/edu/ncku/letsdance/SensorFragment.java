@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.app.Fragment;
 import android.os.IBinder;
@@ -15,8 +16,16 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
+
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 
 
 /**
@@ -26,8 +35,17 @@ import android.widget.TextView;
  */
 public class SensorFragment extends Fragment {
     private ServiceConnection sc;
-    private TextView accVal, magVal;
     private BleService.LocalBinder serviceBinder;
+    private LineChart sensorChart;
+    private LineDataSet[] sensorDataSet = new LineDataSet[]{
+        new LineDataSet(new ArrayList<Entry>(), "accX"),
+        new LineDataSet(new ArrayList<Entry>(), "accY"),
+        new LineDataSet(new ArrayList<Entry>(), "accZ"),
+        new LineDataSet(new ArrayList<Entry>(), "gyroX"),
+        new LineDataSet(new ArrayList<Entry>(), "gyroY"),
+        new LineDataSet(new ArrayList<Entry>(), "gyroZ"),
+        new LineDataSet(new ArrayList<Entry>(), "mag")};
+    private LineData sensorData = new LineData(new ArrayList<String>(), Arrays.asList(sensorDataSet));
 
     /**
      * Use this factory method to create a new instance of
@@ -44,7 +62,14 @@ public class SensorFragment extends Fragment {
     }
 
     public SensorFragment() {
-        // Required empty public constructor
+        int color[] = {Color.RED, Color.GREEN, Color.BLUE, Color.MAGENTA, Color.CYAN, Color.YELLOW, Color.GRAY};
+        for(int i = 0 ; i < sensorDataSet.length ; i++){
+            sensorDataSet[i].setDrawValues(false);
+            sensorDataSet[i].setColor(color[i]);
+            sensorDataSet[i].setCircleColor(color[i]);
+            if(i >= 3)
+                sensorDataSet[i].setAxisDependency(YAxis.AxisDependency.RIGHT);
+        }
     }
 
     @Override
@@ -58,6 +83,15 @@ public class SensorFragment extends Fragment {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service){
                 serviceBinder = (BleService.LocalBinder)service;
+                serviceBinder.enableAccelerometer();
+                serviceBinder.enableMagnetometer();
+                serviceBinder.enableGyroscope();
+                serviceBinder.setAccelerometerNotificationPeriod(500);
+                serviceBinder.setMagnetometerNotificationPeriod(500);
+                serviceBinder.setGyroscopeNotificationPeriod(500);
+                serviceBinder.setAccelerometerNotification(true);
+                serviceBinder.setMagnetometerNotification(true);
+                serviceBinder.setGyroscopeNotification(true);
             }
             @Override
             public void onServiceDisconnected(ComponentName name){
@@ -72,18 +106,43 @@ public class SensorFragment extends Fragment {
                 if(!serviceBinder.getDevice().equals(intent.getParcelableExtra("btDevice")))
                     return;
                 String type = intent.getStringExtra("type");
-                if(type.equals("ready") && intent.getBooleanExtra(type, false)){
-                    serviceBinder.enableAccelerometer();
-                    serviceBinder.enableMagnetometer();
-                    serviceBinder.setMagnetonmeterNotification(true);
-                }else if(type.equals("read") || type.equals("notify")){
+                if(type.equals("read") || type.equals("notify")){
                     Sensor s = (Sensor) intent.getSerializableExtra(type);
                     byte[] data = intent.getByteArrayExtra("data");
                     float[] p = s.convert(data);
-                    if(s == Sensor.ACCELEROMETER)
-                        accVal.setText("(" + p[0] + ",\n" + p[1] + ",\n" + p[2]+")");
-                    else if(s == Sensor.MAGNETOMETER)
-                        magVal.setText("(" + p[0] + ",\n" + p[1] + ",\n" + p[2]+")");
+                    if(s == Sensor.ACCELEROMETER) {
+                        if(sensorDataSet[0].getEntryCount() >= sensorData.getXValCount())
+                            sensorData.addXValue(String.valueOf(sensorData.getXValCount()));
+                        sensorDataSet[0].addEntry(new Entry(p[0], sensorData.getXValCount()));
+                        sensorDataSet[1].addEntry(new Entry(p[1], sensorData.getXValCount()));
+                        sensorDataSet[2].addEntry(new Entry(p[2], sensorData.getXValCount()));
+                        sensorChart.notifyDataSetChanged();
+                        sensorChart.setVisibleXRange(25);
+                        if(sensorData.getXValCount() > 25)
+                            sensorChart.moveViewToX(sensorData.getXValCount()-25);
+                        sensorChart.invalidate();
+                    }else if(s == Sensor.MAGNETOMETER) {
+                        float val = (float) Math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+                        if(sensorDataSet[6].getEntryCount() >= sensorData.getXValCount())
+                            sensorData.addXValue(String.valueOf(sensorData.getXValCount()));
+                        sensorDataSet[6].addEntry(new Entry(val, sensorData.getXValCount()));
+                        sensorChart.notifyDataSetChanged();
+                        sensorChart.setVisibleXRange(25);
+                        if(sensorData.getXValCount() > 25)
+                            sensorChart.moveViewToX(sensorData.getXValCount()-25);
+                        sensorChart.invalidate();
+                    }else if(s == Sensor.GYROSCOPE) {
+                        if(sensorDataSet[3].getEntryCount() >= sensorData.getXValCount())
+                            sensorData.addXValue(String.valueOf(sensorData.getXValCount()));
+                        sensorDataSet[3].addEntry(new Entry(p[0], sensorData.getXValCount()));
+                        sensorDataSet[4].addEntry(new Entry(p[1], sensorData.getXValCount()));
+                        sensorDataSet[5].addEntry(new Entry(p[2], sensorData.getXValCount()));
+                        sensorChart.notifyDataSetChanged();
+                        sensorChart.setVisibleXRange(25);
+                        if(sensorData.getXValCount() > 25)
+                            sensorChart.moveViewToX(sensorData.getXValCount()-25);
+                        sensorChart.invalidate();
+                    }
                 }else Log.d("onReceive","broadcast received, type: " + type);
             }
         } ,new IntentFilter("btCb"));
@@ -99,22 +158,15 @@ public class SensorFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_sensor, container, false);
-        final Button getAccButton = (Button) view.findViewById(R.id.getAccButton),
-                getMagButton = (Button) view.findViewById(R.id.getMagButton);
-        accVal = (TextView) view.findViewById(R.id.AccValLabel);
-        magVal = (TextView) view.findViewById(R.id.MagValLabel);
-        getAccButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                serviceBinder.readAccelerometer();
-            }
-        });
-        getMagButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                serviceBinder.readMagnetometer();
-            }
-        });
+        sensorChart = (LineChart) view.findViewById(R.id.sensorChart);
+        sensorChart.setData(sensorData);
+        sensorChart.setDescription("Accelerometer/Gyroscope/Magnetometer");
+        sensorChart.getAxisLeft().setStartAtZero(false);
+        sensorChart.getAxisLeft().setAxisMinValue(-8);
+        sensorChart.getAxisLeft().setAxisMaxValue(8);
+        sensorChart.getAxisRight().setStartAtZero(false);
+        sensorChart.getAxisRight().setAxisMinValue(-250);
+        sensorChart.getAxisRight().setAxisMaxValue(250);
         return view;
     }
 }

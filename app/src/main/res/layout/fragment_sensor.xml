@@ -1,62 +1,15 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout android:orientation="vertical" xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
     android:layout_height="wrap_content" tools:context="tw.edu.ncku.letsdance.SensorFragment">
 
-    <TextView
-        android:id="@+id/AccLabel"
-        android:text="Accelerometer"
-        android:textSize="20sp"
-        android:layout_width="150sp"
-        android:gravity="center"
-        android:layout_height="wrap_content"
-        android:layout_alignBaseline="@+id/getAccButton"
-        android:layout_alignParentStart="true" />
-
-    <TextView
-        android:id="@+id/AccValLabel"
+    <com.github.mikephil.charting.charts.LineChart
+        android:id="@+id/sensorChart"
         android:layout_width="wrap_content"
-        android:lines="3"
-        android:gravity="center"
         android:layout_height="wrap_content"
-        android:layout_above="@+id/MagValLabel2"
-        android:layout_toEndOf="@+id/AccLabel" />
-
-    <Button
-        android:id="@+id/getAccButton"
-        android:layout_margin="5sp"
-        android:layout_width="wrap_content"
-        android:gravity="center"
-        android:text="Get Data"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true" />
+        android:layout_weight="1" />
     <TextView
-        android:id="@+id/MagLabel"
-        android:text="Magnetometers"
-        android:textSize="20sp"
-        android:layout_width="150sp"
-        android:gravity="center"
-        android:layout_height="wrap_content"
-        android:layout_alignBaseline="@+id/getMagButton"
-        android:layout_alignParentStart="true" />
+        android:id="@+id/magValue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 
-    <TextView
-        android:id="@+id/MagValLabel"
-        android:layout_width="wrap_content"
-        android:lines="3"
-        android:gravity="center"
-        android:layout_height="wrap_content"
-        android:layout_alignBottom="@+id/getMagButton"
-        android:layout_toEndOf="@+id/MagLabel" />
-
-    <Button
-        android:id="@+id/getMagButton"
-        android:layout_margin="5sp"
-        android:layout_width="wrap_content"
-        android:gravity="center"
-        android:text="Get Data"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/getAccButton"
-        android:layout_alignParentEnd="true" />
-
-</RelativeLayout>
+</LinearLayout>
