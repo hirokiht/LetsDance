@@ -162,6 +162,13 @@ public enum Sensor {
   MAGNETOMETER(UUID_MAG_SERV, UUID_MAG_DATA, UUID_MAG_CONF, UUID_MAG_PERI) {
     @Override
     public float[] convert(final byte [] value) {
+      if(MagnetometerCalibrationCoefficients == null || MagnetometerCalibrationCoefficients.length != 3) {
+        MagnetometerCalibrationCoefficients = new float[]{0f, 0f, 0f};
+        float[] xyz = convert(value);
+        MagnetometerCalibrationCoefficients[0] = xyz[0];
+        MagnetometerCalibrationCoefficients[1] = xyz[1];
+        MagnetometerCalibrationCoefficients[2] = xyz[2];
+      }
       float[] mcal = MagnetometerCalibrationCoefficients;
       // Multiply x and y with -1 so that the values correspond with the image in the app
       float x = shortSignedAtOffset(value, 0) * (2000f / 65536f) * -1;
@@ -306,7 +313,7 @@ public enum Sensor {
   }
     public static List<Integer> barometerCalibrationCoefficients;
     public static double heightCalibration;
-    public static float[] MagnetometerCalibrationCoefficients = new float[]{0f,0f,0f};
+    public static float[] MagnetometerCalibrationCoefficients = null;
 	private final UUID service, data, config, period;
 	private byte enableCode; // See getEnableSensorCode for explanation.
 	public static final byte DISABLE_SENSOR_CODE = 0;
