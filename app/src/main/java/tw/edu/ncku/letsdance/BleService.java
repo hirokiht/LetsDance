@@ -210,6 +210,18 @@ public class BleService extends Service {
         public boolean setMagnetometerNotificationPeriod(final int period){
             return setSensorNotificationPeriod(MAGNETOMETER,period/10);
         }
+
+        public boolean enableGyroscope(){
+            return enableSensor(GYROSCOPE);
+        }
+
+        public boolean setGyroscopeNotification(final boolean notify){
+            return setSensorNotification(GYROSCOPE, notify);
+        }
+
+        public boolean setGyroscopeNotificationPeriod(final int period){
+            return setSensorNotificationPeriod(GYROSCOPE, period/10);
+        }
     }
 
     public boolean enableSensor(BluetoothGatt btGatt, Sensor sensor) {
