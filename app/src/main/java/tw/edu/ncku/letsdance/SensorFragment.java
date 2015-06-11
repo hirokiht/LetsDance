@@ -38,6 +38,7 @@ import java.util.Arrays;
 public class SensorFragment extends Fragment {
     private BluetoothGatt btGatt;
     private String mac = "";
+    private float[] magCalib = null;
     private ServiceConnection sc = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
@@ -124,6 +125,14 @@ public class SensorFragment extends Fragment {
                             sensorChart.moveViewToX(sensorData.getXValCount()-25);
                         sensorChart.invalidate();
                     }else if(s == Sensor.MAGNETOMETER) {
+                        if(magCalib == null){
+                            magCalib = p.clone();
+                            p[0] = p[1] = p[2] = 0f;
+                        }else{
+                            p[0] -= magCalib[0];
+                            p[1] -= magCalib[1];
+                            p[2] -= magCalib[2];
+                        }
                         float val = (float) Math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
                         if(sensorDataSet[6].getEntryCount() >= sensorData.getXValCount())
                             sensorData.addXValue(String.valueOf(sensorData.getXValCount()));
