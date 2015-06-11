@@ -17,22 +17,29 @@ import android.content.IntentFilter;
 import android.os.Binder;
 import android.os.IBinder;
 import android.support.v4.content.LocalBroadcastManager;
+import android.support.v4.util.SimpleArrayMap;
 
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.UUID;
 
-import static tw.edu.ncku.letsdance.Sensor.*;
-
 public class BleService extends Service {
     private static BluetoothManager btManager = null;
-    private LocalBroadcastManager bcastManager = null;
+    private static BluetoothAdapter btAdapter = null;
+    private static LocalBroadcastManager bcastManager = null;
+    private static SimpleArrayMap<BluetoothDevice,BluetoothGatt> btGatt = new SimpleArrayMap<>();
+    private static SimpleArrayMap<BluetoothDevice,Boolean> busy = new SimpleArrayMap<>();
+    private static SimpleArrayMap<BluetoothDevice,Queue<BtRequest>> requests = new SimpleArrayMap<>();
 
-    private final BluetoothGattCallback btGattCb = new BluetoothGattCallback() {
+    public static final BluetoothGattCallback btGattCb = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            if (newState == BluetoothProfile.STATE_CONNECTED)
+            if(newState == BluetoothProfile.STATE_CONNECTED){
                 gatt.discoverServices();
+            }else if(newState == BluetoothProfile.STATE_DISCONNECTED){
+                busy.remove(gatt.getDevice());
+                requests.remove(gatt.getDevice());
+            }
             super.onConnectionStateChange(gatt, status, newState);
             bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice",gatt.getDevice())
                     .putExtra("type","connection").putExtra("connection", status));
@@ -99,188 +106,121 @@ public class BleService extends Service {
     };
 
     public BleService() {
+        bcastManager = LocalBroadcastManager.getInstance(this);
+        bcastManager.registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                BluetoothDevice device = intent.getParcelableExtra("btDevice");
+                String type = intent.getStringExtra("type");
+                if(type.startsWith("read") || type.startsWith("write")) //ready starts with "read"
+                    if(requests.get(device).isEmpty())
+                        busy.put(device,false);
+                    else {
+                        BtRequest req = requests.get(device).poll();
+                        req.execute();
+                    }
+            }
+        }, new IntentFilter("btCb"));
     }
 
-    private abstract class BtRequest{
+    private static abstract class BtRequest{
         public String action;
         public BtRequest(String action){
             this.action = action;
         }
-        abstract void execute();
+        abstract boolean execute();
     }
 
-    public class LocalBinder extends Binder {
-        private BluetoothGatt btGatt = null;
-        private boolean busy = true;    //wait for "ready"
-        private Queue<BtRequest> requests = new LinkedList<>();
-
-        public LocalBinder(BluetoothGatt bg){
-            super();
-            btGatt = bg;
-            bcastManager.registerReceiver(new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    if(btGatt.getDevice().equals(intent.getParcelableExtra("device")))
-                        return;
-                    String type = intent.getStringExtra("type");
-                    if(type.startsWith("read") || type.startsWith("write")) //ready starts with "read"
-                        if(requests.isEmpty())
-                            busy = false;
-                        else requests.poll().execute();
-                }
-            }, new IntentFilter("btCb"));
-        }
-
-        public BluetoothDevice getDevice(){
-            return btGatt.getDevice();
-        }
-
-        public boolean enableSensor(final Sensor sensor){
-            if(!busy)
-                return busy = BleService.this.enableSensor(btGatt, sensor);
-            else return requests.offer(new BtRequest("enable"+sensor.name()) {
-                @Override
-                public void execute() {
-                    BleService.this.enableSensor(btGatt, sensor);
-                }
-            });
-        }
-
-        public boolean readSensor(final Sensor sensor){
-            if(!busy)
-                return busy = BleService.this.readSensor(btGatt, sensor);
-            else return requests.offer(new BtRequest("read"+sensor.name()) {
-                @Override
-                public void execute() {
-                    BleService.this.readSensor(btGatt, sensor);
-                }
-            });
-        }
-
-        public boolean setSensorNotification(final Sensor sensor, final boolean notify){
-            if(!busy)
-                return busy = BleService.this.setSensorNotification(btGatt, sensor, notify);
-            else return requests.offer(new BtRequest("set"+sensor.name()+"Notification") {
-                @Override
-                public void execute() {
-                    BleService.this.setSensorNotification(btGatt, sensor, notify);
-                }
-            });
-        }
-
-        public boolean setSensorNotificationPeriod(final Sensor sensor, final int period){
-            if(!busy)
-                return busy = BleService.this.setSensorNotificationPeriod(btGatt, sensor, period);
-            else return requests.offer(new BtRequest("set"+sensor.name()+"NotificationPeriod") {
-                @Override
-                void execute() {
-                    BleService.this.setSensorNotificationPeriod(btGatt, sensor, period);
-                }
-            });
-        }
-
-        public boolean enableAccelerometer(){
-            return enableSensor(ACCELEROMETER);
-        }
-
-        public boolean readAccelerometer(){
-            return readSensor(ACCELEROMETER);
-        }
-
-        public boolean setAccelerometerNotification(final boolean notify){
-            return setSensorNotification(ACCELEROMETER,notify);
-        }
-
-        public boolean setAccelerometerNotificationPeriod(final int period){
-            return setSensorNotificationPeriod(ACCELEROMETER,period/10);
-        }
-
-        public boolean enableMagnetometer(){
-            return enableSensor(MAGNETOMETER);
-        }
-
-        public boolean readMagnetometer(){
-            return readSensor(MAGNETOMETER);
-        }
-
-        public boolean setMagnetometerNotification(final boolean notify){
-            return setSensorNotification(MAGNETOMETER,notify);
-        }
-
-        public boolean setMagnetometerNotificationPeriod(final int period){
-            return setSensorNotificationPeriod(MAGNETOMETER,period/10);
-        }
-
-        public boolean enableGyroscope(){
-            return enableSensor(GYROSCOPE);
-        }
-
-        public boolean setGyroscopeNotification(final boolean notify){
-            return setSensorNotification(GYROSCOPE, notify);
-        }
-
-        public boolean setGyroscopeNotificationPeriod(final int period){
-            return setSensorNotificationPeriod(GYROSCOPE, period/10);
-        }
+    public static BluetoothGatt connectGattDevice(Context ctx, String mac){
+        return connectGattDevice(ctx,btAdapter.getRemoteDevice(mac));
     }
 
-    public boolean enableSensor(BluetoothGatt btGatt, Sensor sensor) {
-        BluetoothGattService service = btGatt.getService(sensor.getService());
-        if(service == null)
-            return false;
-        BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getConfig());
-        if(characteristic == null)
-            return false;
-        characteristic.setValue((int) sensor.getEnableSensorCode(), BluetoothGattCharacteristic.FORMAT_UINT8, 0);
-        return btGatt.writeCharacteristic(characteristic);
+    public static BluetoothGatt connectGattDevice(Context ctx, BluetoothDevice device){
+        BluetoothGatt gatt = device.connectGatt(ctx,false,btGattCb);
+        btGatt.put(device,gatt);
+        busy.put(device,true);
+        requests.put(device,new LinkedList<BtRequest>());
+        return gatt;
     }
 
-    public boolean readSensor(BluetoothGatt btGatt, Sensor sensor){
-        BluetoothGattService service = btGatt.getService(sensor.getService());
-        if(service == null)
-            return false;
-        BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getData());
-        return characteristic!=null && btGatt.readCharacteristic(characteristic);
+    public static boolean enableSensor(final BluetoothGatt btGatt, final Sensor sensor) {
+        BtRequest req = new BtRequest("enable" + sensor.name()) {
+            @Override
+            boolean execute() {
+                BluetoothGattService service = btGatt.getService(sensor.getService());
+                if(service == null)
+                    return false;
+                BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getConfig());
+                if(characteristic == null)
+                    return false;
+                characteristic.setValue((int) sensor.getEnableSensorCode(), BluetoothGattCharacteristic.FORMAT_UINT8, 0);
+                return btGatt.writeCharacteristic(characteristic);
+            }
+        };
+        return busy.get(btGatt.getDevice())? requests.get(btGatt.getDevice()).offer(req) : req.execute();
     }
 
-    public boolean setSensorNotification(BluetoothGatt btGatt, Sensor sensor, boolean enable){
-        BluetoothGattService service = btGatt.getService(sensor.getService());
-        BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getData());
-        if(characteristic!=null && btGatt.setCharacteristicNotification(characteristic,enable)){
-            BluetoothGattDescriptor descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
-            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-            return btGatt.writeDescriptor(descriptor);
-        }else return false;
+    public static boolean readSensor(final BluetoothGatt btGatt, final Sensor sensor){
+        BtRequest request = new BtRequest("read" + sensor.name()) {
+            @Override
+            boolean execute() {
+                BluetoothGattService service = btGatt.getService(sensor.getService());
+                if(service == null)
+                    return false;
+                BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getData());
+                return characteristic!=null && btGatt.readCharacteristic(characteristic);
+            }
+        };
+        return busy.get(btGatt.getDevice())? requests.get(btGatt.getDevice()).offer(request) : request.execute();
     }
 
-    public boolean setSensorNotificationPeriod(BluetoothGatt btGatt, Sensor sensor, int period){
-        BluetoothGattService service = btGatt.getService(sensor.getService());
-        BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getPeriod());
-        if(characteristic == null)
-            return false;
-        characteristic.setValue(period, BluetoothGattCharacteristic.FORMAT_UINT8, 0);
-        return btGatt.writeCharacteristic(characteristic);
+    public static boolean setSensorNotification(final BluetoothGatt btGatt, final Sensor sensor, final boolean enable){
+        BtRequest request = new BtRequest("setNotification" + sensor.name()) {
+            @Override
+            boolean execute() {
+                BluetoothGattService service = btGatt.getService(sensor.getService());
+                BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getData());
+                if(characteristic == null || !btGatt.setCharacteristicNotification(characteristic,enable))
+                    return false;
+                BluetoothGattDescriptor descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
+                descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                return btGatt.writeDescriptor(descriptor);
+            }
+        };
+        return busy.get(btGatt.getDevice())? requests.get(btGatt.getDevice()).offer(request) : request.execute();
+    }
+
+    public static boolean setSensorNotificationPeriod(final BluetoothGatt btGatt, final Sensor sensor, final int period){
+        BtRequest request = new BtRequest("setNotificationPeriod"+sensor.name()) {
+            @Override
+            boolean execute() {
+                BluetoothGattService service = btGatt.getService(sensor.getService());
+                BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getPeriod());
+                if(characteristic == null)
+                    return false;
+                characteristic.setValue(period / 10, BluetoothGattCharacteristic.FORMAT_UINT8, 0);
+                return btGatt.writeCharacteristic(characteristic);
+            }
+        };
+        return busy.get(btGatt.getDevice())? requests.get(btGatt.getDevice()).offer(request) : request.execute();
     }
 
     @Override
     public void onCreate(){
         if(btManager == null)
             btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        bcastManager = LocalBroadcastManager.getInstance(this);
         super.onCreate();
     }
 
     @Override
     public IBinder onBind(Intent intent) {
-        BluetoothAdapter btAdapter = btManager.getAdapter();
+        btAdapter = btManager.getAdapter();
         if(btAdapter == null || !btAdapter.isEnabled())
             throw new UnsupportedOperationException("Bluetooth adapter is not enabled!");    //the Activity should enable adapter first!
-        BluetoothDevice device;
-        if(intent.getStringExtra("mac") != null)
-            device = btAdapter.getRemoteDevice(intent.getStringExtra("mac"));
-        else if(intent.getByteArrayExtra("mac") != null)
-            device = btAdapter.getRemoteDevice(intent.getByteArrayExtra("mac"));
-        else throw new UnsupportedOperationException("No MAC address specified!");
-        return new LocalBinder(device.connectGatt(this,false,btGattCb));
+        return new Binder(){
+            BleService getService(){
+                return BleService.this;
+            }
+        };
     }
 }

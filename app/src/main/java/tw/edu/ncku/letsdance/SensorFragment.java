@@ -1,6 +1,7 @@
 package tw.edu.ncku.letsdance;
 
 import android.app.Activity;
+import android.bluetooth.BluetoothGatt;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -16,6 +17,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.github.mikephil.charting.components.YAxis;
@@ -34,8 +36,28 @@ import java.util.Arrays;
  * create an instance of this fragment.
  */
 public class SensorFragment extends Fragment {
-    private ServiceConnection sc;
-    private BleService.LocalBinder serviceBinder;
+    private BluetoothGatt btGatt;
+    private String mac = "";
+    private ServiceConnection sc = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            btGatt = BleService.connectGattDevice(getActivity(), mac);
+            BleService.enableSensor(btGatt,Sensor.ACCELEROMETER);
+            BleService.enableSensor(btGatt, Sensor.MAGNETOMETER);
+            BleService.enableSensor(btGatt, Sensor.GYROSCOPE);
+            BleService.setSensorNotificationPeriod(btGatt, Sensor.ACCELEROMETER, 500);
+            BleService.setSensorNotificationPeriod(btGatt, Sensor.MAGNETOMETER, 500);
+            BleService.setSensorNotificationPeriod(btGatt, Sensor.GYROSCOPE, 500);
+            BleService.setSensorNotification(btGatt, Sensor.ACCELEROMETER, true);
+            BleService.setSensorNotification(btGatt, Sensor.MAGNETOMETER, true);
+            BleService.setSensorNotification(btGatt, Sensor.GYROSCOPE, true);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+
+        }
+    };
     private LineChart sensorChart;
     private LineDataSet[] sensorDataSet = new LineDataSet[]{
         new LineDataSet(new ArrayList<Entry>(), "accX"),
@@ -78,32 +100,12 @@ public class SensorFragment extends Fragment {
         if(getArguments() == null)
             return;
         setRetainInstance(true);    // retain this fragment
-        String mac = getArguments().getString("mac");
-        sc = new ServiceConnection(){
-            @Override
-            public void onServiceConnected(ComponentName name, IBinder service){
-                serviceBinder = (BleService.LocalBinder)service;
-                serviceBinder.enableAccelerometer();
-                serviceBinder.enableMagnetometer();
-                serviceBinder.enableGyroscope();
-                serviceBinder.setAccelerometerNotificationPeriod(500);
-                serviceBinder.setMagnetometerNotificationPeriod(500);
-                serviceBinder.setGyroscopeNotificationPeriod(500);
-                serviceBinder.setAccelerometerNotification(true);
-                serviceBinder.setMagnetometerNotification(true);
-                serviceBinder.setGyroscopeNotification(true);
-            }
-            @Override
-            public void onServiceDisconnected(ComponentName name){
-                serviceBinder = null;
-            }
-        };
-        getActivity().getApplication().bindService(new Intent(getActivity(), BleService.class)
-                .putExtra("mac", mac), sc, Activity.BIND_AUTO_CREATE);
+        mac = getArguments().getString("mac");
+        getActivity().getApplication().bindService(new Intent(getActivity(), BleService.class), sc, Activity.BIND_AUTO_CREATE);
         LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new BroadcastReceiver(){
             @Override
             public void onReceive(Context context, Intent intent) {
-                if(!serviceBinder.getDevice().equals(intent.getParcelableExtra("btDevice")))
+                if(!btGatt.getDevice().equals(intent.getParcelableExtra("btDevice")))
                     return;
                 String type = intent.getStringExtra("type");
                 if(type.equals("read") || type.equals("notify")){
@@ -158,15 +160,17 @@ public class SensorFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_sensor, container, false);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         sensorChart = (LineChart) view.findViewById(R.id.sensorChart);
         sensorChart.setData(sensorData);
-        sensorChart.setDescription("Accelerometer/Gyroscope/Magnetometer");
+        sensorChart.setDescription(mac+" Accelerometer/Gyroscope/Magnetometer");
         sensorChart.getAxisLeft().setStartAtZero(false);
         sensorChart.getAxisLeft().setAxisMinValue(-8);
         sensorChart.getAxisLeft().setAxisMaxValue(8);
         sensorChart.getAxisRight().setStartAtZero(false);
         sensorChart.getAxisRight().setAxisMinValue(-250);
         sensorChart.getAxisRight().setAxisMaxValue(250);
+        view.setLayoutParams(params);
         return view;
     }
 }

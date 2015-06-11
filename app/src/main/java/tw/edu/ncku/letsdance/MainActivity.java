@@ -17,7 +17,7 @@ public class MainActivity extends AppCompatActivity{
     private final static int REQUEST_ENABLE_BT = 1;
     private BluetoothManager btManager = null;
     private ProgressDialogFragment waitForBt  = null;
-    private String macA = "5C:31:3E:C0:20:85";//"78:A5:04:19:59:A3";//"B4:99:4C:34:DB:57";
+    private String[] mac = new String[] {"5C:31:3E:C0:20:85", "78:A5:04:19:59:A3", "B4:99:4C:34:DB:57"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,7 +45,8 @@ public class MainActivity extends AppCompatActivity{
             waitForBt.show(getFragmentManager(), "dialog");
         }else{
             Log.d("MainActivity.onCreate", "Bt already enabled!");
-            addSensorFragment(macA);
+            addSensorFragment(mac[1]);
+            addSensorFragment(mac[2]);
         }
         super.onStart();
     }
@@ -67,7 +68,8 @@ public class MainActivity extends AppCompatActivity{
             waitForBt.dismiss();
             if(resultCode == RESULT_OK || (btManager !=null && btManager.getAdapter() != null && btManager.getAdapter().isEnabled())){
                 Log.d("onActivityResult", "Bt enabled!");
-                addSensorFragment(macA);
+                addSensorFragment(mac[1]);
+                addSensorFragment(mac[2]);
             }else{
                 btManager = null;
                 AlertDialogFragment.newInstance(R.string.need_bt, R.string.bt_not_found)
@@ -104,7 +106,8 @@ public class MainActivity extends AppCompatActivity{
         if(sf == null) {
             FragmentTransaction ft = fm.beginTransaction();
             sf = SensorFragment.newInstance(mac);
-            ft.add(R.id.fragment, sf, mac).commit();
+            ft.add(R.id.MainLayout, sf, mac).commit();
         }
+
     }
 }
