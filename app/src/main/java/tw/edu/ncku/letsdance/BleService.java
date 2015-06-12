@@ -27,7 +27,7 @@ public class BleService extends Service {
     private static BluetoothManager btManager = null;
     private static BluetoothAdapter btAdapter = null;
     private static LocalBroadcastManager bcastManager = null;
-    private static SimpleArrayMap<BluetoothDevice,BluetoothGatt> btGatt = new SimpleArrayMap<>();
+    private static SimpleArrayMap<BluetoothDevice,BluetoothGatt> btGatts = new SimpleArrayMap<>();
     private static SimpleArrayMap<BluetoothDevice,Boolean> busy = new SimpleArrayMap<>();
     private static SimpleArrayMap<BluetoothDevice,Queue<BtRequest>> requests = new SimpleArrayMap<>();
 
@@ -131,22 +131,25 @@ public class BleService extends Service {
         abstract boolean execute();
     }
 
-    public static BluetoothGatt connectGattDevice(Context ctx, String mac){
-        return connectGattDevice(ctx,btAdapter.getRemoteDevice(mac));
+    public static BluetoothDevice connectGattDevice(Context ctx, String mac){
+        final BluetoothDevice device = btAdapter.getRemoteDevice(mac);
+        connectGattDevice(ctx,device);
+        return device;
     }
 
-    public static BluetoothGatt connectGattDevice(Context ctx, BluetoothDevice device){
+    public static void connectGattDevice(Context ctx, BluetoothDevice device){
         BluetoothGatt gatt = device.connectGatt(ctx,false,btGattCb);
-        btGatt.put(device,gatt);
+        btGatts.put(device,gatt);
         busy.put(device,true);
         requests.put(device,new LinkedList<BtRequest>());
-        return gatt;
     }
 
-    public static boolean enableSensor(final BluetoothGatt btGatt, final Sensor sensor) {
+    public static boolean enableSensor(final BluetoothDevice device, final Sensor sensor) {
+        final BluetoothGatt btGatt = btGatts.get(device);
         BtRequest req = new BtRequest("enable" + sensor.name()) {
             @Override
             boolean execute() {
+                busy.put(device,true);
                 BluetoothGattService service = btGatt.getService(sensor.getService());
                 if(service == null)
                     return false;
@@ -160,10 +163,12 @@ public class BleService extends Service {
         return busy.get(btGatt.getDevice())? requests.get(btGatt.getDevice()).offer(req) : req.execute();
     }
 
-    public static boolean readSensor(final BluetoothGatt btGatt, final Sensor sensor){
+    public static boolean readSensor(final BluetoothDevice device, final Sensor sensor){
+        final BluetoothGatt btGatt = btGatts.get(device);
         BtRequest request = new BtRequest("read" + sensor.name()) {
             @Override
             boolean execute() {
+                busy.put(device,true);
                 BluetoothGattService service = btGatt.getService(sensor.getService());
                 if(service == null)
                     return false;
@@ -174,10 +179,12 @@ public class BleService extends Service {
         return busy.get(btGatt.getDevice())? requests.get(btGatt.getDevice()).offer(request) : request.execute();
     }
 
-    public static boolean setSensorNotification(final BluetoothGatt btGatt, final Sensor sensor, final boolean enable){
+    public static boolean setSensorNotification(final BluetoothDevice device, final Sensor sensor, final boolean enable){
+        final BluetoothGatt btGatt = btGatts.get(device);
         BtRequest request = new BtRequest("setNotification" + sensor.name()) {
             @Override
             boolean execute() {
+                busy.put(device,true);
                 BluetoothGattService service = btGatt.getService(sensor.getService());
                 BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getData());
                 if(characteristic == null || !btGatt.setCharacteristicNotification(characteristic,enable))
@@ -190,10 +197,12 @@ public class BleService extends Service {
         return busy.get(btGatt.getDevice())? requests.get(btGatt.getDevice()).offer(request) : request.execute();
     }
 
-    public static boolean setSensorNotificationPeriod(final BluetoothGatt btGatt, final Sensor sensor, final int period){
+    public static boolean setSensorNotificationPeriod(final BluetoothDevice device, final Sensor sensor, final int period){
+        final BluetoothGatt btGatt = btGatts.get(device);
         BtRequest request = new BtRequest("setNotificationPeriod"+sensor.name()) {
             @Override
             boolean execute() {
+                busy.put(device,true);
                 BluetoothGattService service = btGatt.getService(sensor.getService());
                 BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getPeriod());
                 if(characteristic == null)
@@ -217,10 +226,6 @@ public class BleService extends Service {
         btAdapter = btManager.getAdapter();
         if(btAdapter == null || !btAdapter.isEnabled())
             throw new UnsupportedOperationException("Bluetooth adapter is not enabled!");    //the Activity should enable adapter first!
-        return new Binder(){
-            BleService getService(){
-                return BleService.this;
-            }
-        };
+        return new Binder();
     }
 }

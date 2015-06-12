@@ -1,7 +1,7 @@
 package tw.edu.ncku.letsdance;
 
 import android.app.Activity;
-import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -18,7 +18,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.Entry;
@@ -36,22 +35,22 @@ import java.util.Arrays;
  * create an instance of this fragment.
  */
 public class SensorFragment extends Fragment {
-    private BluetoothGatt btGatt;
+    private BluetoothDevice device;
     private String mac = "";
     private float[] magCalib = null;
     private ServiceConnection sc = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            btGatt = BleService.connectGattDevice(getActivity(), mac);
-            BleService.enableSensor(btGatt,Sensor.ACCELEROMETER);
-            BleService.enableSensor(btGatt, Sensor.MAGNETOMETER);
-            BleService.enableSensor(btGatt, Sensor.GYROSCOPE);
-            BleService.setSensorNotificationPeriod(btGatt, Sensor.ACCELEROMETER, 500);
-            BleService.setSensorNotificationPeriod(btGatt, Sensor.MAGNETOMETER, 500);
-            BleService.setSensorNotificationPeriod(btGatt, Sensor.GYROSCOPE, 500);
-            BleService.setSensorNotification(btGatt, Sensor.ACCELEROMETER, true);
-            BleService.setSensorNotification(btGatt, Sensor.MAGNETOMETER, true);
-            BleService.setSensorNotification(btGatt, Sensor.GYROSCOPE, true);
+            device = BleService.connectGattDevice(getActivity(), mac);
+            BleService.enableSensor(device,Sensor.ACCELEROMETER);
+            BleService.enableSensor(device, Sensor.MAGNETOMETER);
+            BleService.enableSensor(device, Sensor.GYROSCOPE);
+            BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER, 500);
+            BleService.setSensorNotificationPeriod(device, Sensor.MAGNETOMETER, 500);
+            BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE, 500);
+            BleService.setSensorNotification(device, Sensor.ACCELEROMETER, true);
+            BleService.setSensorNotification(device, Sensor.MAGNETOMETER, true);
+            BleService.setSensorNotification(device, Sensor.GYROSCOPE, true);
         }
 
         @Override
@@ -106,7 +105,7 @@ public class SensorFragment extends Fragment {
         LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new BroadcastReceiver(){
             @Override
             public void onReceive(Context context, Intent intent) {
-                if(!btGatt.getDevice().equals(intent.getParcelableExtra("btDevice")))
+                if (!device.equals(intent.getParcelableExtra("btDevice")))
                     return;
                 String type = intent.getStringExtra("type");
                 if(type.equals("read") || type.equals("notify")){
