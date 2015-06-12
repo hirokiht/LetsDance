@@ -17,13 +17,17 @@ public class MainActivity extends AppCompatActivity{
     private final static int REQUEST_ENABLE_BT = 1;
     private BluetoothManager btManager = null;
     private ProgressDialogFragment waitForBt  = null;
-    private String[] mac = new String[] {"5C:31:3E:C0:20:85", "78:A5:04:19:59:A3", "B4:99:4C:34:DB:57"};
+    private String[] mac = new String[] {"5C:31:3E:C0:20:85", "78:A5:04:19:59:A3",
+            "B4:99:4C:34:DB:57", "B4:99:4C:64:AF:D1"};
+    private boolean addedFragments = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if(savedInstanceState != null && savedInstanceState.getBoolean("noBt"))
             return;
+        if(savedInstanceState != null)
+            addedFragments = savedInstanceState.getBoolean("addedFragments");
         setContentView(R.layout.activity_main);
         btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
     }
@@ -43,17 +47,27 @@ public class MainActivity extends AppCompatActivity{
                     .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP), REQUEST_ENABLE_BT);
             waitForBt = ProgressDialogFragment.newInstance(R.string.bt_not_enabled, R.string.wait_for_bt_enable);
             waitForBt.show(getFragmentManager(), "dialog");
-        }else{
-            Log.d("MainActivity.onCreate", "Bt already enabled!");
-            addSensorFragment(mac[1]);
-            addSensorFragment(mac[2]);
-        }
+        }else Log.d("MainActivity.onStart", "Bt already enabled!");
         super.onStart();
+    }
+
+    @Override
+    protected void onResume(){  //this will occur after onStart hence will be called when bt is enabled
+        super.onResume();
+        if(addedFragments || btManager == null || btManager.getAdapter() == null || !btManager.getAdapter().isEnabled())
+            return;
+        addedFragments = true;
+//      addSensorFragment(mac[0]);
+        addSensorFragment(mac[1]);
+        addSensorFragment(mac[2]);
+        addSensorFragment(mac[3]);
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState){
         outState.putBoolean("noBt", btManager == null);
+        outState.putBoolean("addedFragments", addedFragments);
+        super.onSaveInstanceState(outState);
     }
 
     @Override
@@ -66,11 +80,9 @@ public class MainActivity extends AppCompatActivity{
     protected void onActivityResult(int requestCode, int resultCode, Intent data){
         if(requestCode == REQUEST_ENABLE_BT){
             waitForBt.dismiss();
-            if(resultCode == RESULT_OK || (btManager !=null && btManager.getAdapter() != null && btManager.getAdapter().isEnabled())){
+            if(resultCode == RESULT_OK || (btManager !=null && btManager.getAdapter() != null && btManager.getAdapter().isEnabled()))
                 Log.d("onActivityResult", "Bt enabled!");
-                addSensorFragment(mac[1]);
-                addSensorFragment(mac[2]);
-            }else{
+            else{
                 btManager = null;
                 AlertDialogFragment.newInstance(R.string.need_bt, R.string.bt_not_found)
                         .show(getFragmentManager(),"dialog");
