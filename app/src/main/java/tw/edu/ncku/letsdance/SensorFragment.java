@@ -42,13 +42,13 @@ public class SensorFragment extends Fragment {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             device = BleService.connectGattDevice(getActivity(), mac);
-            BleService.enableSensor(device,Sensor.ACCELEROMETER);
+            BleService.enableSensor(device,Sensor.ACCELEROMETER4G);
             BleService.enableSensor(device, Sensor.MAGNETOMETER);
             BleService.enableSensor(device, Sensor.GYROSCOPE);
-            BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER, 500);
+            BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER4G, 500);
             BleService.setSensorNotificationPeriod(device, Sensor.MAGNETOMETER, 500);
             BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE, 500);
-            BleService.setSensorNotification(device, Sensor.ACCELEROMETER, true);
+            BleService.setSensorNotification(device, Sensor.ACCELEROMETER4G, true);
             BleService.setSensorNotification(device, Sensor.MAGNETOMETER, true);
             BleService.setSensorNotification(device, Sensor.GYROSCOPE, true);
         }
@@ -111,7 +111,7 @@ public class SensorFragment extends Fragment {
                 if(type.equals("read") || type.equals("notify")){
                     Sensor s = (Sensor) intent.getSerializableExtra(type);
                     byte[] data = intent.getByteArrayExtra("data");
-                    float[] p = s.convert(data);
+                    float[] p = (s == Sensor.ACCELEROMETER)? Sensor.ACCELEROMETER4G.convert(data) : s.convert(data);
                     if(s == Sensor.ACCELEROMETER) {
                         if(sensorDataSet[0].getEntryCount() >= sensorData.getXValCount())
                             sensorData.addXValue(String.valueOf(sensorData.getXValCount()));
@@ -173,8 +173,8 @@ public class SensorFragment extends Fragment {
         sensorChart.setData(sensorData);
         sensorChart.setDescription(mac+" Accelerometer/Gyroscope/Magnetometer");
         sensorChart.getAxisLeft().setStartAtZero(false);
-        sensorChart.getAxisLeft().setAxisMinValue(-8);
-        sensorChart.getAxisLeft().setAxisMaxValue(8);
+        sensorChart.getAxisLeft().setAxisMinValue(-4);
+        sensorChart.getAxisLeft().setAxisMaxValue(4);
         sensorChart.getAxisRight().setStartAtZero(false);
         sensorChart.getAxisRight().setAxisMinValue(-250);
         sensorChart.getAxisRight().setAxisMaxValue(250);

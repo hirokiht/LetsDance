@@ -144,6 +144,40 @@ public enum Sensor {
   		}
 
   	}
+  },ACCELEROMETER4G(UUID_ACC_SERV, UUID_ACC_DATA, UUID_ACC_CONF, UUID_ACC_PERI, (byte)2) {
+    @Override
+    public float[] convert(final byte[] value) {
+  		/*
+  		 * The accelerometer has the range [-2g, 2g] with unit (1/64)g.
+  		 * To convert from unit (1/64)g to unit g we divide by 64.
+  		 * (g = 9.81 m/s^2)
+  		 * The z value is multiplied with -1 to coincide with how we have arbitrarily defined the positive y direction. (illustrated by the apps accelerometer
+  		 * image)
+  		 */
+        Integer x = (int) value[0];
+        Integer y = (int) value[1];
+        Integer z = (int) value[2] * -1;
+        final float SCALE = 32.0f;
+        return new float[]{x / SCALE, y / SCALE, z / SCALE};
+    }
+  },ACCELEROMETER2G(UUID_ACC_SERV, UUID_ACC_DATA, UUID_ACC_CONF, UUID_ACC_PERI, (byte)1) {
+    @Override
+    public float[] convert(final byte[] value) {
+  		/*
+  		 * The accelerometer has the range [-2g, 2g] with unit (1/64)g.
+  		 * To convert from unit (1/64)g to unit g we divide by 64.
+  		 * (g = 9.81 m/s^2)
+  		 * The z value is multiplied with -1 to coincide with how we have arbitrarily defined the positive y direction. (illustrated by the apps accelerometer
+  		 * image)
+  		 */
+      //	DeviceActivity da = DeviceActivity.getInstance();
+        Integer x = (int) value[0];
+        Integer y = (int) value[1];
+        Integer z = (int) value[2] * -1;
+        final float SCALE = 16.0f;
+        return new float[]{x / SCALE, y / SCALE, z / SCALE};
+
+    }
   },
 
   HUMIDITY(UUID_HUM_SERV, UUID_HUM_DATA, UUID_HUM_CONF, UUID_HUM_PERI){
