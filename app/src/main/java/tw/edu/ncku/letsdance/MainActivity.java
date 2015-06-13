@@ -11,6 +11,11 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Toast;
+import android.widget.ToggleButton;
+
+import java.io.IOException;
 
 
 public class MainActivity extends AppCompatActivity{
@@ -20,6 +25,7 @@ public class MainActivity extends AppCompatActivity{
     private String[] mac = new String[] {"5C:31:3E:C0:20:85", "78:A5:04:19:59:A3",
             "B4:99:4C:34:DB:57", "B4:99:4C:64:AF:D1"};
     private boolean addedFragments = false;
+    private SensorDataLoggerFragment[] loggerFragments = new SensorDataLoggerFragment[4];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,10 +63,17 @@ public class MainActivity extends AppCompatActivity{
         if(addedFragments || btManager == null || btManager.getAdapter() == null || !btManager.getAdapter().isEnabled())
             return;
         addedFragments = true;
-//      addSensorFragment(mac[0]);
+      addSensorFragment(mac[0]);
         addSensorFragment(mac[1]);
         addSensorFragment(mac[2]);
         addSensorFragment(mac[3]);
+        FragmentManager fm = getFragmentManager();
+        FragmentTransaction ft = fm.beginTransaction();
+        for(int i = 0 ; i < loggerFragments.length ; i++) {
+            loggerFragments[i] = SensorDataLoggerFragment.newInstance(mac[i]);
+            ft.add(loggerFragments[i], null);
+        }
+        ft.commit();
     }
 
     @Override
@@ -121,5 +134,26 @@ public class MainActivity extends AppCompatActivity{
             ft.add(R.id.MainLayout, sf, mac).commit();
         }
 
+    }
+
+    public void onToggleClicked(View view){
+        ToggleButton btn = (ToggleButton) view;
+        for(SensorDataLoggerFragment logFrag : loggerFragments)
+            if(logFrag != null)
+                if(btn.isChecked())
+                    logFrag.start();
+                else
+                    logFrag.stop();
+    }
+
+    public void onSaveClicked(View view){
+        for(SensorDataLoggerFragment logFrag : loggerFragments)
+            if(logFrag != null)
+                try{
+                    logFrag.writeToExtStorage();
+                }catch(IOException ioe){
+                    Toast.makeText(this,ioe.getMessage(),Toast.LENGTH_SHORT).show();
+                    ioe.printStackTrace();
+                }
     }
 }
