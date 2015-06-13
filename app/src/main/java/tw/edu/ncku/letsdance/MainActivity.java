@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity{
         if(addedFragments || btManager == null || btManager.getAdapter() == null || !btManager.getAdapter().isEnabled())
             return;
         addedFragments = true;
-      addSensorFragment(mac[0]);
+        addSensorFragment(mac[0]);
         addSensorFragment(mac[1]);
         addSensorFragment(mac[2]);
         addSensorFragment(mac[3]);
