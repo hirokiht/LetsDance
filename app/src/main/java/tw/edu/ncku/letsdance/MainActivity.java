@@ -1,12 +1,16 @@
 package tw.edu.ncku.letsdance;
 
+import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
@@ -21,11 +25,12 @@ import java.io.IOException;
 public class MainActivity extends AppCompatActivity{
     private final static int REQUEST_ENABLE_BT = 1;
     private BluetoothManager btManager = null;
+    private FragmentManager fragmentManager = null;
     private ProgressDialogFragment waitForBt  = null;
-    private String[] mac = new String[] {"5C:31:3E:C0:20:85", "78:A5:04:19:59:A3",
-            "B4:99:4C:34:DB:57", "B4:99:4C:64:AF:D1"};
+    private String[] macs = null;
     private boolean addedFragments = false;
-    private SensorDataLoggerFragment[] loggerFragments = new SensorDataLoggerFragment[4];
+    private SensorDataLoggerFragment[] loggerFragments = null;
+    private SharedPreferences preferences;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,6 +41,7 @@ public class MainActivity extends AppCompatActivity{
             addedFragments = savedInstanceState.getBoolean("addedFragments");
         setContentView(R.layout.activity_main);
         btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        fragmentManager = getFragmentManager();
     }
 
     @Override
@@ -43,7 +49,7 @@ public class MainActivity extends AppCompatActivity{
         if(btManager == null){
             super.onStart();
             AlertDialogFragment.newInstance(R.string.need_bt, R.string.bt_not_found)
-                    .show(getFragmentManager(), "dialog");
+                    .show(fragmentManager, "dialog");
             return;
         }
         final BluetoothAdapter btAdapter = btManager.getAdapter();
@@ -52,7 +58,7 @@ public class MainActivity extends AppCompatActivity{
             startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
                     .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP), REQUEST_ENABLE_BT);
             waitForBt = ProgressDialogFragment.newInstance(R.string.bt_not_enabled, R.string.wait_for_bt_enable);
-            waitForBt.show(getFragmentManager(), "dialog");
+            waitForBt.show(fragmentManager, "dialog");
         }else Log.d("MainActivity.onStart", "Bt already enabled!");
         super.onStart();
     }
@@ -63,14 +69,18 @@ public class MainActivity extends AppCompatActivity{
         if(addedFragments || btManager == null || btManager.getAdapter() == null || !btManager.getAdapter().isEnabled())
             return;
         addedFragments = true;
-        addSensorFragment(mac[0]);
-        addSensorFragment(mac[1]);
-        addSensorFragment(mac[2]);
-        addSensorFragment(mac[3]);
-        FragmentManager fm = getFragmentManager();
-        FragmentTransaction ft = fm.beginTransaction();
+        preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        macs = new String[]{ preferences.getString("mac0",null),preferences.getString("mac1",null),
+                preferences.getString("mac2",null), preferences.getString("mac3",null) };
+        for(String mac : macs)
+            if(mac != null && mac.length() == 17)
+                addSensorFragment(mac);
+        loggerFragments = new SensorDataLoggerFragment[macs.length];
+        FragmentTransaction ft = fragmentManager.beginTransaction();
         for(int i = 0 ; i < loggerFragments.length ; i++) {
-            loggerFragments[i] = SensorDataLoggerFragment.newInstance(mac[i]);
+            if(macs[i] == null || macs[i].length() != 17)
+                continue;
+            loggerFragments[i] = SensorDataLoggerFragment.newInstance(macs[i]);
             ft.add(loggerFragments[i], null);
         }
         ft.commit();
@@ -98,7 +108,7 @@ public class MainActivity extends AppCompatActivity{
             else{
                 btManager = null;
                 AlertDialogFragment.newInstance(R.string.need_bt, R.string.bt_not_found)
-                        .show(getFragmentManager(),"dialog");
+                        .show(fragmentManager,"dialog");
             }
         }
     }
@@ -116,24 +126,66 @@ public class MainActivity extends AppCompatActivity{
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-
+        ActionBar ab = getSupportActionBar();
+        FragmentTransaction ft = fragmentManager.beginTransaction();
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            for(String mac : macs)
+                if(mac != null && mac.length() == 17)
+                    ft.hide(fragmentManager.findFragmentByTag(mac));
+            ft.add(R.id.MainLayout, new SettingsFragment()).addToBackStack(null).commit();
+            findViewById(R.id.action_settings).setVisibility(View.GONE);
+            findViewById(R.id.logBtn).setVisibility(View.GONE);
+            findViewById(R.id.saveBtn).setVisibility(View.GONE);
+            if(ab != null) {
+                ab.setDisplayHomeAsUpEnabled(true);
+                ab.setSubtitle("Settings");
+            }
             return true;
-        }
+        }else if(id == android.R.id.home){
+            if(fragmentManager.getBackStackEntryCount() == 0)
+                return super.onOptionsItemSelected(item);
+            onBackPressed();
+            return true;
+        }else Log.d("onOptionsItemSelected","id: "+id);
 
         return super.onOptionsItemSelected(item);
     }
 
-    private void addSensorFragment(String mac){
-        FragmentManager fm = getFragmentManager();
-        SensorFragment sf = (SensorFragment) fm.findFragmentByTag(mac);
-        if(sf == null) {
-            FragmentTransaction ft = fm.beginTransaction();
-            sf = SensorFragment.newInstance(mac);
-            ft.add(R.id.MainLayout, sf, mac).commit();
+    @Override
+    public void onBackPressed() {
+        if (!fragmentManager.popBackStackImmediate()){
+            super.onBackPressed();
+            return;
         }
+        findViewById(R.id.action_settings).setVisibility(View.VISIBLE);
+        findViewById(R.id.logBtn).setVisibility(View.VISIBLE);
+        findViewById(R.id.saveBtn).setVisibility(View.VISIBLE);
+        ActionBar ab = getSupportActionBar();
+        if(ab != null) {
+            ab.setDisplayHomeAsUpEnabled(false);
+            ab.setSubtitle(null);
+        }
+        FragmentTransaction ft = fragmentManager.beginTransaction();
+        for(int i = 0 ; i < 4 ; i++) {
+            String newMac = preferences.getString("mac" + (char)('0'+i), null);
+            if(macs[i] != null && macs[i].length() == 17 && !macs[i].equals(newMac)) {
+                ft.remove(fragmentManager.findFragmentByTag(macs[i]));
+                macs[i] = null;
+            }
+            if(newMac != null && newMac.length() == 17 && !newMac.equals(macs[i])){
+                macs[i] = newMac;
+                ft.add(R.id.MainLayout, SensorFragment.newInstance(macs[i]), macs[i]);
+            }
+        }
+        ft.commit();
+    }
 
+    private void addSensorFragment(String mac){
+        if(fragmentManager.findFragmentByTag(mac) == null) {
+            FragmentTransaction ft = fragmentManager.beginTransaction();
+            ft.add(R.id.MainLayout, SensorFragment.newInstance(mac), mac).commit();
+        }
     }
 
     public void onToggleClicked(View view){
@@ -142,8 +194,7 @@ public class MainActivity extends AppCompatActivity{
             if(logFrag != null)
                 if(btn.isChecked())
                     logFrag.start();
-                else
-                    logFrag.stop();
+                else logFrag.stop();
     }
 
     public void onSaveClicked(View view){

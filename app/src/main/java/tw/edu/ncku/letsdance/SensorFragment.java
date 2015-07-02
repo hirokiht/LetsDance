@@ -8,10 +8,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.app.Fragment;
 import android.os.IBinder;
+import android.preference.PreferenceManager;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -38,6 +40,24 @@ public class SensorFragment extends Fragment {
     private BluetoothDevice device;
     private String mac = "";
     private float[] magCalib = null;
+    private short interval = 500;
+    private SharedPreferences.OnSharedPreferenceChangeListener listener = new SharedPreferences.OnSharedPreferenceChangeListener() {
+        @Override
+        public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+            if(!key.equals("interval"))
+                return;
+            String intStr = sharedPreferences.getString("interval",null);
+            try{
+                interval = Short.parseShort(intStr);
+            }catch(NumberFormatException nfe){
+                Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
+            }
+            BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER4G, interval);
+            BleService.setSensorNotificationPeriod(device, Sensor.MAGNETOMETER, interval);
+            BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE, interval);
+        }
+    };
+
     private ServiceConnection sc = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
@@ -45,9 +65,9 @@ public class SensorFragment extends Fragment {
             BleService.enableSensor(device,Sensor.ACCELEROMETER4G);
             BleService.enableSensor(device, Sensor.MAGNETOMETER);
             BleService.enableSensor(device, Sensor.GYROSCOPE);
-            BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER4G, 500);
-            BleService.setSensorNotificationPeriod(device, Sensor.MAGNETOMETER, 500);
-            BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE, 500);
+            BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER4G, interval);
+            BleService.setSensorNotificationPeriod(device, Sensor.MAGNETOMETER, interval);
+            BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE, interval);
             BleService.setSensorNotification(device, Sensor.ACCELEROMETER4G, true);
             BleService.setSensorNotification(device, Sensor.MAGNETOMETER, true);
             BleService.setSensorNotification(device, Sensor.GYROSCOPE, true);
@@ -102,6 +122,14 @@ public class SensorFragment extends Fragment {
         setRetainInstance(true);    // retain this fragment
         mac = getArguments().getString("mac");
         getActivity().getApplication().bindService(new Intent(getActivity(), BleService.class), sc, Activity.BIND_AUTO_CREATE);
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        sharedPreferences.registerOnSharedPreferenceChangeListener(listener);
+        String intervalStr = sharedPreferences.getString("interval","");
+        try{
+            interval = Short.parseShort(intervalStr);
+        }catch(NumberFormatException nfe){
+            Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
+        }
         LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new BroadcastReceiver(){
             @Override
             public void onReceive(Context context, Intent intent) {

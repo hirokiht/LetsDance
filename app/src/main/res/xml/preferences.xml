@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="Device Addresses">
+        <ListPreference android:summary="%s" android:key="mac0" android:title="Player 1 Left" />
+        <ListPreference android:summary="%s" android:key="mac1" android:title="Player 1 Right" />
+        <ListPreference android:summary="%s" android:key="mac2" android:title="Player 2 Left" />
+        <ListPreference android:summary="%s" android:key="mac3" android:title="Player 2 Right" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="Data Options">
+        <EditTextPreference android:title="Data Interval (ms)" android:defaultValue="100"
+            android:key="interval" android:inputType="number" android:maxLength="3" />
+    </PreferenceCategory>
+</PreferenceScreen>
