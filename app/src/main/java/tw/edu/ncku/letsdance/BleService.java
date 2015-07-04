@@ -74,7 +74,7 @@ public class BleService extends Service {
                         .putExtra("type", "write").putExtra("write", (Sensor) null)
                         .putExtra("status", status == BluetoothGatt.GATT_SUCCESS));
             }finally {
-                super.onCharacteristicRead(gatt, characteristic, status);
+                super.onCharacteristicWrite(gatt, characteristic, status);
             }
         }
 
