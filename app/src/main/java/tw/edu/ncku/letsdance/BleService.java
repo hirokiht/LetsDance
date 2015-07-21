@@ -11,10 +11,8 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
@@ -51,6 +49,7 @@ public class BleService extends Service {
             bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "ready").putExtra("ready", status == BluetoothGatt.GATT_SUCCESS));
             super.onServicesDiscovered(gatt, status);
+            pollRequests(gatt.getDevice());
         }
 
         @Override
@@ -60,22 +59,22 @@ public class BleService extends Service {
             bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "read").putExtra("read", sensor).putExtra("data", val));
             super.onCharacteristicRead(gatt, characteristic, status);
+            pollRequests(gatt.getDevice());
         }
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status){
+            Sensor sensor;
             try{
-                Sensor sensor = Sensor.getFromDataUuid(characteristic.getUuid());
-                bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
-                        .putExtra("type", "write").putExtra("write", sensor)
-                        .putExtra("status", status == BluetoothGatt.GATT_SUCCESS));
+                sensor = Sensor.getFromDataUuid(characteristic.getUuid());
             }catch(RuntimeException re){
-                bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
-                        .putExtra("type", "write").putExtra("write", (Sensor) null)
-                        .putExtra("status", status == BluetoothGatt.GATT_SUCCESS));
-            }finally {
-                super.onCharacteristicWrite(gatt, characteristic, status);
+                sensor = null;
             }
+            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
+                    .putExtra("type", "write").putExtra("write", sensor)
+                    .putExtra("status", status == BluetoothGatt.GATT_SUCCESS));
+            super.onCharacteristicWrite(gatt, characteristic, status);
+            pollRequests(gatt.getDevice());
         }
 
         @Override
@@ -94,6 +93,7 @@ public class BleService extends Service {
             bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "readDesc").putExtra("readDesc", sensor).putExtra("data", val));
             super.onDescriptorRead(gatt, descriptor, status);
+            pollRequests(gatt.getDevice());
         }
 
         @Override
@@ -103,25 +103,12 @@ public class BleService extends Service {
                     .putExtra("type", "writeDesc").putExtra("writeDesc", sensor)
                     .putExtra("status", status == BluetoothGatt.GATT_SUCCESS));
             super.onDescriptorWrite(gatt, descriptor, status);
+            pollRequests(gatt.getDevice());
         }
     };
 
     public BleService() {
         bcastManager = LocalBroadcastManager.getInstance(this);
-        bcastManager.registerReceiver(new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                BluetoothDevice device = intent.getParcelableExtra("btDevice");
-                String type = intent.getStringExtra("type");
-                if (type.startsWith("read") || type.startsWith("write")) //ready starts with "read"
-                    if (requests.get(device).isEmpty())
-                        busy.put(device, false);
-                    else {
-                        BtRequest req = requests.get(device).poll();
-                        req.execute();
-                    }
-            }
-        }, new IntentFilter("btCb"));
     }
 
     private static abstract class BtRequest{
@@ -130,6 +117,14 @@ public class BleService extends Service {
             this.action = action;
         }
         abstract boolean execute();
+    }
+
+    private static void pollRequests(BluetoothDevice device){
+        if (requests.get(device) == null)
+            return;
+        if(requests.get(device).isEmpty())
+            busy.put(device, false);
+        else requests.get(device).poll().execute();
     }
 
     public static void discoverDevices(Context ctx){
