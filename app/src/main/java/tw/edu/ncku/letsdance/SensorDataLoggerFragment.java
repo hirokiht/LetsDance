@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.app.Fragment;
 import android.os.Environment;
 import android.support.v4.content.LocalBroadcastManager;
+import android.support.v4.util.SimpleArrayMap;
 import android.util.Log;
 
 import java.io.BufferedWriter;
@@ -26,9 +27,7 @@ import java.util.Arrays;
  */
 public class SensorDataLoggerFragment extends Fragment {
     private String mac;
-    private float[] magCalib = null;
-    private ArrayList<float[]> acc = new ArrayList<>(), gyro = new ArrayList<>();
-    private ArrayList<Float> mag = new ArrayList<>();
+    private SimpleArrayMap<Sensor,ArrayList<float[]>> data = new SimpleArrayMap<>();
     private boolean log = false;
 
     /**
@@ -64,24 +63,12 @@ public class SensorDataLoggerFragment extends Fragment {
                 String type = intent.getStringExtra("type");
                 if(type.equals("read") || type.equals("notify")){
                     Sensor s = (Sensor) intent.getSerializableExtra(type);
-                    byte[] data = intent.getByteArrayExtra("data");
-                    float[] p = (s == Sensor.ACCELEROMETER)? Sensor.ACCELEROMETER4G.convert(data) : s.convert(data);
-                    if(s == Sensor.ACCELEROMETER) {
-                        acc.add(p);
-                    }else if(s == Sensor.MAGNETOMETER){
-                        if(magCalib == null){
-                            magCalib = p.clone();
-                            p[0] = p[1] = p[2] = 0f;
-                        }else{
-                            p[0] -= magCalib[0];
-                            p[1] -= magCalib[1];
-                            p[2] -= magCalib[2];
-                        }
-                        float val = (float) Math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
-                        mag.add(val);
-                    }else if(s == Sensor.GYROSCOPE) {
-                        gyro.add(p);
-                    }
+                    byte[] rawData = intent.getByteArrayExtra("data");
+                    float[] p = (s == Sensor.ACCELEROMETER)? Sensor.ACCELEROMETER4G.convert(rawData) :
+                            (s == Sensor.GYROSCOPE)? Sensor.GYROSCOPE_XY.convert(rawData) : s.convert(rawData);
+                    if(!data.containsKey(s))
+                        data.put(s,new ArrayList<float[]>());
+                    data.get(s).add(p);
                 }else Log.d("onReceive", "broadcast received, type: " + type);
             }
         } ,new IntentFilter("btCb"));
@@ -99,23 +86,14 @@ public class SensorDataLoggerFragment extends Fragment {
         if(!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED))
             throw new IOException("ext storage not mounted! State: "+Environment.getExternalStorageState());
         final File dir = getActivity().getExternalFilesDir(null);
-        File accFp = new File(dir,"acc-"+mac+".csv");
-        File gyroFp = new File(dir,"gyro-"+mac+".csv");
-        File magFp = new File(dir,"mag-"+mac+".csv");
-        BufferedWriter accWriter = new BufferedWriter(new FileWriter(accFp));
-        BufferedWriter gyroWriter = new BufferedWriter(new FileWriter(gyroFp));
-        BufferedWriter magWriter = new BufferedWriter(new FileWriter(magFp));
-        for(float[] a : acc){
-            accWriter.write(Arrays.toString(a));
-            accWriter.newLine();
+        for(int i = 0 ; i < data.size() ; i++){
+            File fp = new File(dir,data.keyAt(i).name()+"-"+mac+".csv");
+            BufferedWriter writer = new BufferedWriter(new FileWriter(fp));
+            for(float[] d : data.valueAt(i)) {
+                writer.write(Arrays.toString(d));
+                writer.newLine();
+            }
+            writer.close();
         }
-        for(float[] g : gyro){
-            gyroWriter.write(Arrays.toString(g));
-            gyroWriter.newLine();
-        }
-        magWriter.write(mag.toString());
-        accWriter.close();
-        gyroWriter.close();
-        magWriter.close();
     }
 }
