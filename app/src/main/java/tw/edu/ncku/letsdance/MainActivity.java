@@ -36,7 +36,7 @@ public class MainActivity extends AppCompatActivity{
     private String[] macs = null;
     private short interval = 500;
     private boolean addedFragments = false;
-    private SensorDataLoggerFragment[] loggerFragments = null;
+    private SensorDataLoggerFragment loggerFragment = SensorDataLoggerFragment.newInstance();
     private SharedPreferences preferences;
     private boolean log = false;
 
@@ -110,14 +110,8 @@ public class MainActivity extends AppCompatActivity{
         for(String mac : macs)
             if(mac != null && mac.length() == 17)
                 addSensorFragment(mac);
-        loggerFragments = new SensorDataLoggerFragment[macs.length];
         FragmentTransaction ft = fragmentManager.beginTransaction();
-        for(int i = 0 ; i < loggerFragments.length ; i++) {
-            if(macs[i] == null || macs[i].length() != 17)
-                continue;
-            loggerFragments[i] = SensorDataLoggerFragment.newInstance(macs[i]);
-            ft.add(loggerFragments[i], null);
-        }
+        ft.add(loggerFragment, null);
         ft.commit();
         LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
             @Override
@@ -229,14 +223,11 @@ public class MainActivity extends AppCompatActivity{
             String newMac = preferences.getString("mac" + (char)('0'+i), null);
             if(macs[i] != null && macs[i].length() == 17 && !macs[i].equals(newMac)) {
                 ft.remove(fragmentManager.findFragmentByTag(macs[i]));
-                ft.remove(loggerFragments[i]);
                 macs[i] = null;
             }
             if(newMac != null && newMac.length() == 17 && !newMac.equals(macs[i])){
                 macs[i] = newMac;
                 ft.add(R.id.MainLayout, SensorFragment.newInstance(macs[i], interval), macs[i]);
-                loggerFragments[i] = SensorDataLoggerFragment.newInstance(macs[i]);
-                ft.add(loggerFragments[i],null);
             }
         }
         ft.commit();
@@ -252,10 +243,9 @@ public class MainActivity extends AppCompatActivity{
     private void updateDeviceSensorData(BluetoothDevice device, Sensor sensor, byte[] data){
         float[] p = (sensor == Sensor.ACCELEROMETER) ? Sensor.ACCELEROMETER2G.convert(data) :
                 (sensor == Sensor.GYROSCOPE) ? Sensor.GYROSCOPE_XY.convert(data) : sensor.convert(data);
-        for (int i = 0; i < macs.length; i++)
-            if (macs[i] != null && macs[i].equals(device.getAddress()))
-                if (log && loggerFragments[i] != null)
-                    loggerFragments[i].logData(sensor.name(), p);
+        for (String mac : macs)
+            if (log && mac != null && mac.equals(device.getAddress()))
+                loggerFragment.logData(device.getAddress()+"-"+sensor.name(), p);
         SensorFragment sf = (SensorFragment) fragmentManager.findFragmentByTag(device.getAddress());
         if(sf != null)
             sf.addSensorData(sensor,p);
@@ -267,13 +257,11 @@ public class MainActivity extends AppCompatActivity{
     }
 
     public void onSaveClicked(View view){
-        for(SensorDataLoggerFragment logFrag : loggerFragments)
-            if(logFrag != null)
-                try{
-                    logFrag.writeToExtStorage();
-                }catch(IOException ioe){
-                    Toast.makeText(this,ioe.getMessage(),Toast.LENGTH_SHORT).show();
-                    ioe.printStackTrace();
-                }
+        try{
+            loggerFragment.writeToExtStorage();
+        }catch(IOException ioe){
+            Toast.makeText(this,ioe.getMessage(),Toast.LENGTH_SHORT).show();
+            ioe.printStackTrace();
+        }
     }
 }
