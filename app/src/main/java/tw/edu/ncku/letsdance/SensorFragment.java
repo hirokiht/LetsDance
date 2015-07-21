@@ -1,16 +1,7 @@
 package tw.edu.ncku.letsdance;
 
-import android.app.Activity;
-import android.bluetooth.BluetoothDevice;
-import android.content.ComponentName;
-import android.content.Intent;
-import android.content.ServiceConnection;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.app.Fragment;
-import android.os.IBinder;
-import android.preference.PreferenceManager;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,44 +22,11 @@ import java.util.Arrays;
  * create an instance of this fragment.
  */
 public class SensorFragment extends Fragment {
-    private BluetoothDevice device;
     private String mac = "";
     private short interval = 500;
-    private SharedPreferences.OnSharedPreferenceChangeListener listener = new SharedPreferences.OnSharedPreferenceChangeListener() {
-        @Override
-        public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-            if(!key.equals("interval"))
-                return;
-            String intStr = sharedPreferences.getString("interval",null);
-            try{
-                interval = Short.parseShort(intStr);
-            }catch(NumberFormatException nfe){
-                Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
-            }
-            BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER2G, interval);
-            BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE_XY, interval);
-        }
-    };
     private float[] acc = null, gyro = null, lpfAcc = null, deg = {0.0f,0.0f,0.0f};
     private float aAcc = 0.90f, alpha = 0.96f;              //alpha for lpf and complimentary filter
 
-    private ServiceConnection sc = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            device = BleService.connectGattDevice(getActivity(), mac);
-            BleService.enableSensor(device,Sensor.ACCELEROMETER2G);
-            BleService.enableSensor(device, Sensor.GYROSCOPE_XY);
-            BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER2G, interval);
-            BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE_XY, interval);
-            BleService.setSensorNotification(device, Sensor.ACCELEROMETER2G, true);
-            BleService.setSensorNotification(device, Sensor.GYROSCOPE_XY, true);
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-
-        }
-    };
     private LineChart sensorChart;
     private LineData sensorData = new LineData(new ArrayList<String>(), Arrays.asList(new LineDataSet[]{
             new LineDataSet(null, "degX"), new LineDataSet(null, "degY"), new LineDataSet(null, "degZ")}));
@@ -79,10 +37,11 @@ public class SensorFragment extends Fragment {
      *
      * @return A new instance of fragment SensorFragment.
      */
-    public static SensorFragment newInstance(String mac) {
+    public static SensorFragment newInstance(String mac, short interval) {
         SensorFragment fragment = new SensorFragment();
         Bundle args = new Bundle();
         args.putString("mac", mac);
+        args.putShort("interval",interval);
         fragment.setArguments(args);
         return fragment;
     }
@@ -101,21 +60,16 @@ public class SensorFragment extends Fragment {
             return;
         setRetainInstance(true);    // retain this fragment
         mac = getArguments().getString("mac");
-        getActivity().getApplication().bindService(new Intent(getActivity(), BleService.class), sc, Activity.BIND_AUTO_CREATE);
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        sharedPreferences.registerOnSharedPreferenceChangeListener(listener);
-        String intervalStr = sharedPreferences.getString("interval","");
-        try{
-            interval = Short.parseShort(intervalStr);
-        }catch(NumberFormatException nfe){
-            Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
-        }
+        interval = getArguments().getShort("interval");
     }
 
     @Override
     public void onDestroy(){
-        getActivity().getApplication().unbindService(sc);
         super.onDestroy();
+    }
+
+    public void setInterval(short interval){
+        this.interval = interval;
     }
 
     public void addSensorData(Sensor s, float[] p){

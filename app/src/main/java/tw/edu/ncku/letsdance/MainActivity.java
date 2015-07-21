@@ -6,11 +6,14 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.ActionBar;
@@ -31,10 +34,33 @@ public class MainActivity extends AppCompatActivity{
     private FragmentManager fragmentManager = null;
     private ProgressDialogFragment waitForBt  = null;
     private String[] macs = null;
+    private BluetoothDevice[] devices = new BluetoothDevice[4];
+    private short interval = 500;
     private boolean addedFragments = false;
     private SensorDataLoggerFragment[] loggerFragments = null;
     private SharedPreferences preferences;
     private boolean log = false;
+
+    private ServiceConnection sc = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            for(int i = 0 ; i < macs.length ; i++) {
+                if(macs[i] == null || macs[i].length() != 17)
+                    continue;
+                devices[i] = BleService.connectGattDevice(MainActivity.this, macs[i]);
+                BleService.enableSensor(devices[i], Sensor.ACCELEROMETER2G);
+                BleService.enableSensor(devices[i], Sensor.GYROSCOPE_XY);
+                BleService.setSensorNotificationPeriod(devices[i], Sensor.ACCELEROMETER2G, interval);
+                BleService.setSensorNotificationPeriod(devices[i], Sensor.GYROSCOPE_XY, interval);
+                BleService.setSensorNotification(devices[i], Sensor.ACCELEROMETER2G, true);
+                BleService.setSensorNotification(devices[i], Sensor.GYROSCOPE_XY, true);
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,6 +102,12 @@ public class MainActivity extends AppCompatActivity{
         preferences = PreferenceManager.getDefaultSharedPreferences(this);
         macs = new String[]{ preferences.getString("mac0",null),preferences.getString("mac1",null),
                 preferences.getString("mac2",null), preferences.getString("mac3",null) };
+        String intStr = preferences.getString("interval",null);
+        try{
+            interval = Short.parseShort(intStr);
+        }catch(NumberFormatException nfe){
+            Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
+        }
         for(String mac : macs)
             if(mac != null && mac.length() == 17)
                 addSensorFragment(mac);
@@ -94,10 +126,11 @@ public class MainActivity extends AppCompatActivity{
                 String type = intent.getStringExtra("type");
                 if (!type.equals("read") && !type.equals("notify"))
                     return;
-                updateDeviceSensorData((BluetoothDevice)intent.getParcelableExtra("btDevice"),
-                        (Sensor)intent.getSerializableExtra(type),intent.getByteArrayExtra("data"));
+                updateDeviceSensorData((BluetoothDevice) intent.getParcelableExtra("btDevice"),
+                        (Sensor) intent.getSerializableExtra(type), intent.getByteArrayExtra("data"));
             }
         }, new IntentFilter("btCb"));
+        getApplication().bindService(new Intent(this, BleService.class), sc, BIND_AUTO_CREATE);
     }
 
     @Override
@@ -178,6 +211,22 @@ public class MainActivity extends AppCompatActivity{
             ab.setDisplayHomeAsUpEnabled(false);
             ab.setSubtitle(null);
         }
+        String intStr = preferences.getString("interval",null);
+        try{
+            if(Short.parseShort(intStr) != interval){
+                interval = Short.parseShort(intStr);
+                for(BluetoothDevice device : devices)
+                    if(device != null) {
+                        BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER2G, interval);
+                        BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE_XY, interval);
+                    }
+                for(String mac : macs)
+                    if(mac != null && mac.length() == 17)
+                        ((SensorFragment)fragmentManager.findFragmentByTag(mac)).setInterval(interval);
+            }
+        }catch(NumberFormatException nfe){
+            Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
+        }
         FragmentTransaction ft = fragmentManager.beginTransaction();
         for(int i = 0 ; i < 4 ; i++) {
             String newMac = preferences.getString("mac" + (char)('0'+i), null);
@@ -188,7 +237,7 @@ public class MainActivity extends AppCompatActivity{
             }
             if(newMac != null && newMac.length() == 17 && !newMac.equals(macs[i])){
                 macs[i] = newMac;
-                ft.add(R.id.MainLayout, SensorFragment.newInstance(macs[i]), macs[i]);
+                ft.add(R.id.MainLayout, SensorFragment.newInstance(macs[i], interval), macs[i]);
                 loggerFragments[i] = SensorDataLoggerFragment.newInstance(macs[i]);
                 ft.add(loggerFragments[i],null);
             }
@@ -199,12 +248,12 @@ public class MainActivity extends AppCompatActivity{
     private void addSensorFragment(String mac){
         if(fragmentManager.findFragmentByTag(mac) == null) {
             FragmentTransaction ft = fragmentManager.beginTransaction();
-            ft.add(R.id.MainLayout, SensorFragment.newInstance(mac), mac).commit();
+            ft.add(R.id.MainLayout, SensorFragment.newInstance(mac,interval), mac).commit();
         }
     }
 
     private void updateDeviceSensorData(BluetoothDevice device, Sensor sensor, byte[] data){
-        float[] p = (sensor == Sensor.ACCELEROMETER) ? Sensor.ACCELEROMETER4G.convert(data) :
+        float[] p = (sensor == Sensor.ACCELEROMETER) ? Sensor.ACCELEROMETER2G.convert(data) :
                 (sensor == Sensor.GYROSCOPE) ? Sensor.GYROSCOPE_XY.convert(data) : sensor.convert(data);
         for (int i = 0; i < macs.length; i++)
             if (macs[i] != null && macs[i].equals(device.getAddress()))
