@@ -92,17 +92,10 @@ public class MainActivity extends AppCompatActivity{
             @Override
             public void onReceive(Context context, Intent intent) {
                 String type = intent.getStringExtra("type");
-                if(!type.equals("read") && !type.equals("notify"))
+                if (!type.equals("read") && !type.equals("notify"))
                     return;
-                String origin = ((BluetoothDevice) intent.getParcelableExtra("btDevice")).getAddress();
-                byte[] rawData = intent.getByteArrayExtra("data");
-                Sensor s = (Sensor) intent.getSerializableExtra(type);
-                float[] p = (s == Sensor.ACCELEROMETER) ? Sensor.ACCELEROMETER4G.convert(rawData) :
-                        (s == Sensor.GYROSCOPE) ? Sensor.GYROSCOPE_XY.convert(rawData) : s.convert(rawData);
-                for(int i = 0 ; i < macs.length ; i ++)
-                    if(macs[i] != null && macs[i].equals(origin))
-                        if(log && loggerFragments[i] != null)
-                            loggerFragments[i].logData(s.name(),p);
+                updateDeviceSensorData((BluetoothDevice)intent.getParcelableExtra("btDevice"),
+                        (Sensor)intent.getSerializableExtra(type),intent.getByteArrayExtra("data"));
             }
         }, new IntentFilter("btCb"));
     }
@@ -208,6 +201,15 @@ public class MainActivity extends AppCompatActivity{
             FragmentTransaction ft = fragmentManager.beginTransaction();
             ft.add(R.id.MainLayout, SensorFragment.newInstance(mac), mac).commit();
         }
+    }
+
+    private void updateDeviceSensorData(BluetoothDevice device, Sensor sensor, byte[] data){
+        float[] p = (sensor == Sensor.ACCELEROMETER) ? Sensor.ACCELEROMETER4G.convert(data) :
+                (sensor == Sensor.GYROSCOPE) ? Sensor.GYROSCOPE_XY.convert(data) : sensor.convert(data);
+        for (int i = 0; i < macs.length; i++)
+            if (macs[i] != null && macs[i].equals(device.getAddress()))
+                if (log && loggerFragments[i] != null)
+                    loggerFragments[i].logData(sensor.name(), p);
     }
 
     public void onToggleClicked(View view){
