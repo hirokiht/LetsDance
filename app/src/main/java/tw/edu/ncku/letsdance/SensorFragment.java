@@ -2,18 +2,14 @@ package tw.edu.ncku.letsdance;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothDevice;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.app.Fragment;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
-import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -114,20 +110,6 @@ public class SensorFragment extends Fragment {
         }catch(NumberFormatException nfe){
             Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
         }
-        LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new BroadcastReceiver(){
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (device == null || !device.equals(intent.getParcelableExtra("btDevice")))
-                    return;
-                String type = intent.getStringExtra("type");
-                if(type.equals("read") || type.equals("notify")){
-                    Sensor s = (Sensor) intent.getSerializableExtra(type);
-                    byte[] data = intent.getByteArrayExtra("data");
-                    float[] p = (s == Sensor.ACCELEROMETER)? Sensor.ACCELEROMETER2G.convert(data) : s.convert(data);
-                    addSensorData(s,p);
-                } else Log.d("onReceive", "broadcast received, type: " + type);
-            }
-        } ,new IntentFilter("btCb"));
     }
 
     @Override

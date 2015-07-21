@@ -210,6 +210,9 @@ public class MainActivity extends AppCompatActivity{
             if (macs[i] != null && macs[i].equals(device.getAddress()))
                 if (log && loggerFragments[i] != null)
                     loggerFragments[i].logData(sensor.name(), p);
+        SensorFragment sf = (SensorFragment) fragmentManager.findFragmentByTag(device.getAddress());
+        if(sf != null)
+            sf.addSensorData(sensor,p);
     }
 
     public void onToggleClicked(View view){
