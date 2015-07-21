@@ -124,22 +124,7 @@ public class SensorFragment extends Fragment {
                     Sensor s = (Sensor) intent.getSerializableExtra(type);
                     byte[] data = intent.getByteArrayExtra("data");
                     float[] p = (s == Sensor.ACCELEROMETER)? Sensor.ACCELEROMETER2G.convert(data) : s.convert(data);
-                    if(s == Sensor.ACCELEROMETER) {
-                        lpfAcc = lpfAcc == null? p.clone() : new float[]{lpfAcc[0]+aAcc*(p[0]-acc[0]),
-                                lpfAcc[1]+aAcc*(p[1]-acc[1]), lpfAcc[2]+aAcc*(p[2]-acc[2])};
-                        acc = p.clone();
-                    }else if(s == Sensor.GYROSCOPE)
-                        gyro = p.clone();
-                    if(gyro == null || acc == null)
-                        return;
-                    final float t = interval/1000.0f; //convert from ms to s
-                    final float[] accDeg = {(float)Math.atan2(-lpfAcc   [1],lpfAcc[2])*180.0f/(float)Math.PI,
-                            (float)Math.atan2(-lpfAcc[0],lpfAcc[2])*180.0f/(float)Math.PI,
-                            (float)Math.atan2(lpfAcc[1],lpfAcc[0])*180.0f/(float)Math.PI};
-                    final float[] gyroDeg = {deg[0]+gyro[0]*t,deg[1]+gyro[1]*t};
-                    deg = new float[]{alpha*gyroDeg[0]+(1.0f-alpha)*accDeg[0],
-                        alpha*gyroDeg[1]+(1.0f-alpha)*accDeg[1], accDeg[2]};
-                    addEntry(deg);
+                    addSensorData(s,p);
                 } else Log.d("onReceive", "broadcast received, type: " + type);
             }
         } ,new IntentFilter("btCb"));
@@ -149,6 +134,26 @@ public class SensorFragment extends Fragment {
     public void onDestroy(){
         getActivity().getApplication().unbindService(sc);
         super.onDestroy();
+    }
+
+    public void addSensorData(Sensor s, float[] p){
+        if(s == Sensor.ACCELEROMETER) {
+            lpfAcc = lpfAcc == null? p.clone() : new float[]{lpfAcc[0]+aAcc*(p[0]-acc[0]),
+                    lpfAcc[1]+aAcc*(p[1]-acc[1]), lpfAcc[2]+aAcc*(p[2]-acc[2])};
+            acc = p.clone();
+        }else if(s == Sensor.GYROSCOPE)
+            gyro = p.clone();
+        else return;
+        if(gyro == null || acc == null)
+            return;
+        final float t = interval/1000.0f; //convert from ms to s
+        final float[] accDeg = {(float)Math.atan2(-lpfAcc   [1],lpfAcc[2])*180.0f/(float)Math.PI,
+                (float)Math.atan2(-lpfAcc[0],lpfAcc[2])*180.0f/(float)Math.PI,
+                (float)Math.atan2(lpfAcc[1],lpfAcc[0])*180.0f/(float)Math.PI};
+        final float[] gyroDeg = {deg[0]+gyro[0]*t,deg[1]+gyro[1]*t};
+        deg = new float[]{alpha*gyroDeg[0]+(1.0f-alpha)*accDeg[0],
+                alpha*gyroDeg[1]+(1.0f-alpha)*accDeg[1], accDeg[2]};
+        addEntry(deg);
     }
 
     public void addEntry(float[] entries){
