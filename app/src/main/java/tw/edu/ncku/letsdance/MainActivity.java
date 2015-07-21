@@ -4,7 +4,6 @@ import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -30,9 +29,9 @@ import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity{
     private final static int REQUEST_ENABLE_BT = 1;
-    private BluetoothManager btManager = null;
+    private Boolean btEnable = null;
     private FragmentManager fragmentManager = null;
-    private ProgressDialogFragment waitForBt  = null;
+    private ProgressDialogFragment waitForBt = null;
     private String[] macs = null;
     private short interval = 500;
     private boolean addedFragments = false;
@@ -64,38 +63,35 @@ public class MainActivity extends AppCompatActivity{
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if(savedInstanceState != null && savedInstanceState.getBoolean("noBt"))
+        fragmentManager = getFragmentManager();
+        if(savedInstanceState != null && savedInstanceState.containsKey("btEnable") &&
+                !savedInstanceState.getBoolean("btEnable") ) {
+            btEnable = false;
             return;
+        }
         if(savedInstanceState != null)
             addedFragments = savedInstanceState.getBoolean("addedFragments");
         setContentView(R.layout.activity_main);
-        btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        fragmentManager = getFragmentManager();
-    }
-
-    @Override
-    protected void onStart(){
-        if(btManager == null){
-            super.onStart();
+        if(BluetoothAdapter.getDefaultAdapter() == null) {
             AlertDialogFragment.newInstance(R.string.need_bt, R.string.bt_not_found)
                     .show(fragmentManager, "dialog");
-            return;
-        }
-        final BluetoothAdapter btAdapter = btManager.getAdapter();
-        if(btAdapter == null || !btAdapter.isEnabled()) {
-            Log.d("MainActivity.onStart", "Trying to enable bt!");
-            startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP), REQUEST_ENABLE_BT);
+            btEnable = false;
+        }else if(BluetoothAdapter.getDefaultAdapter().isEnabled())
+            btEnable = true;
+        else{
+            if(savedInstanceState == null)
+                startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP), REQUEST_ENABLE_BT);
             waitForBt = ProgressDialogFragment.newInstance(R.string.bt_not_enabled, R.string.wait_for_bt_enable);
             waitForBt.show(fragmentManager, "dialog");
-        }else Log.d("MainActivity.onStart", "Bt already enabled!");
-        super.onStart();
+            Log.d("MainActivity.onCreate", "Waiting for enabling bt!");
+        }
     }
 
     @Override
     protected void onResume(){  //this will occur after onStart hence will be called when bt is enabled
         super.onResume();
-        if(addedFragments || btManager == null || btManager.getAdapter() == null || !btManager.getAdapter().isEnabled())
+        if(addedFragments || BluetoothAdapter.getDefaultAdapter() == null || !BluetoothAdapter.getDefaultAdapter().isEnabled())
             return;
         addedFragments = true;
         preferences = PreferenceManager.getDefaultSharedPreferences(this);
@@ -127,14 +123,20 @@ public class MainActivity extends AppCompatActivity{
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState){
-        outState.putBoolean("noBt", btManager == null);
+    protected void onSaveInstanceState(Bundle outState) {
+        if (waitForBt != null)
+            waitForBt.dismissAllowingStateLoss();
+        finishActivity(REQUEST_ENABLE_BT);
         outState.putBoolean("addedFragments", addedFragments);
+        if(btEnable != null)
+            outState.putBoolean("btEnable",btEnable);
         super.onSaveInstanceState(outState);
     }
 
     @Override
-    protected void onStop(){
+    protected void onStop() {
+        if(waitForBt != null)
+            waitForBt.dismissAllowingStateLoss();
         finishActivity(REQUEST_ENABLE_BT);
         super.onStop();
     }
@@ -142,14 +144,19 @@ public class MainActivity extends AppCompatActivity{
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data){
         if(requestCode == REQUEST_ENABLE_BT){
-            waitForBt.dismiss();
-            if(resultCode == RESULT_OK || (btManager !=null && btManager.getAdapter() != null && btManager.getAdapter().isEnabled()))
-                Log.d("onActivityResult", "Bt enabled!");
-            else{
-                btManager = null;
+            btEnable = (resultCode == RESULT_OK || BluetoothAdapter.getDefaultAdapter().isEnabled());
+            if(!btEnable)
+                try {   //wait a while for BT to enable, resultCode not accurate after recreated, ugly hack but works
+                    Thread.sleep(2000);
+                }catch(InterruptedException ie){
+                    Log.d("onAcitivtyResult","Interrupted Sleeping...");
+                }
+            if(waitForBt != null)
+                waitForBt.dismissAllowingStateLoss();
+            btEnable = (resultCode == RESULT_OK || BluetoothAdapter.getDefaultAdapter().isEnabled());
+            if(!btEnable)
                 AlertDialogFragment.newInstance(R.string.need_bt, R.string.bt_not_found)
-                        .show(fragmentManager,"dialog");
-            }
+                        .show(fragmentManager, "dialog");
         }
     }
 
