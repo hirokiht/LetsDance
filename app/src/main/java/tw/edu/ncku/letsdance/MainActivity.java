@@ -1,6 +1,5 @@
 package tw.edu.ncku.letsdance;
 
-import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.bluetooth.BluetoothAdapter;
@@ -135,8 +134,7 @@ public class MainActivity extends AppCompatActivity{
                     ft.hide(fragmentManager.findFragmentByTag(mac));
             ft.add(R.id.MainLayout, new SettingsFragment()).addToBackStack(null).commit();
             findViewById(R.id.action_settings).setVisibility(View.GONE);
-            findViewById(R.id.logBtn).setVisibility(View.GONE);
-            findViewById(R.id.saveBtn).setVisibility(View.GONE);
+            findViewById(R.id.BtnLyt).setVisibility(View.GONE);
             if(ab != null) {
                 ab.setDisplayHomeAsUpEnabled(true);
                 ab.setSubtitle("Settings");
@@ -159,8 +157,7 @@ public class MainActivity extends AppCompatActivity{
             return;
         }
         findViewById(R.id.action_settings).setVisibility(View.VISIBLE);
-        findViewById(R.id.logBtn).setVisibility(View.VISIBLE);
-        findViewById(R.id.saveBtn).setVisibility(View.VISIBLE);
+        findViewById(R.id.BtnLyt).setVisibility(View.VISIBLE);
         ActionBar ab = getSupportActionBar();
         if(ab != null) {
             ab.setDisplayHomeAsUpEnabled(false);
@@ -171,11 +168,14 @@ public class MainActivity extends AppCompatActivity{
             String newMac = preferences.getString("mac" + (char)('0'+i), null);
             if(macs[i] != null && macs[i].length() == 17 && !macs[i].equals(newMac)) {
                 ft.remove(fragmentManager.findFragmentByTag(macs[i]));
+                ft.remove(loggerFragments[i]);
                 macs[i] = null;
             }
             if(newMac != null && newMac.length() == 17 && !newMac.equals(macs[i])){
                 macs[i] = newMac;
                 ft.add(R.id.MainLayout, SensorFragment.newInstance(macs[i]), macs[i]);
+                loggerFragments[i] = SensorDataLoggerFragment.newInstance(macs[i]);
+                ft.add(loggerFragments[i],null);
             }
         }
         ft.commit();
