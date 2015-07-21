@@ -48,7 +48,7 @@ public class SensorDataLoggerFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        prefix = getArguments() != null? getArguments().getString("prefix") : "";
+        prefix = getArguments() != null? getArguments().getString("prefix")+"-" : "";
     }
 
     public void logData(String key, float[] value){
@@ -62,7 +62,7 @@ public class SensorDataLoggerFragment extends Fragment {
             throw new IOException("ext storage not mounted! State: "+Environment.getExternalStorageState());
         final File dir = getActivity().getExternalFilesDir(null);
         for(int i = 0 ; i < data.size() ; i++){
-            File fp = new File(dir,prefix+"-"+data.keyAt(i)+".csv");
+            File fp = new File(dir,prefix+data.keyAt(i)+".csv");
             BufferedWriter writer = new BufferedWriter(new FileWriter(fp));
             for(float[] d : data.valueAt(i)) {
                 writer.write(Arrays.toString(d));
