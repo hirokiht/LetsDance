@@ -233,6 +233,54 @@ public enum Sensor {
       return new float[]{x,y,z};
     }
   },
+  GYROSCOPE_X(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)1) {
+    @Override
+    public float[] convert(final byte [] value) {
+      float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
+      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
+      return new float[]{x,y,0.0f};
+    }
+  },
+  GYROSCOPE_Y(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)2) {
+    @Override
+    public float[] convert(final byte [] value) {
+      float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
+      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
+      return new float[]{x,y,0.0f};
+    }
+  },
+  GYROSCOPE_XY(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)3) {
+    @Override
+    public float[] convert(final byte [] value) {
+      float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
+      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
+      return new float[]{x,y,0.0f};
+    }
+  },
+  GYROSCOPE_Z(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)4) {
+    @Override
+    public float[] convert(final byte [] value) {
+      float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
+      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
+      return new float[]{x,y,0.0f};
+    }
+  },
+  GYROSCOPE_XZ(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)5) {
+    @Override
+    public float[] convert(final byte [] value) {
+      float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
+      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
+      return new float[]{x,y,0.0f};
+    }
+  },
+  GYROSCOPE_YZ(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)6) {
+    @Override
+    public float[] convert(final byte [] value) {
+      float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
+      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
+      return new float[]{x,y,0.0f};
+    }
+  },
 
   BAROMETER(UUID_BAR_SERV, UUID_BAR_DATA, UUID_BAR_CONF, UUID_BAR_PERI) {
     @Override
