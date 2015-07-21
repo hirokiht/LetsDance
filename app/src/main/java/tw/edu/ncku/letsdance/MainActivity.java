@@ -34,7 +34,6 @@ public class MainActivity extends AppCompatActivity{
     private FragmentManager fragmentManager = null;
     private ProgressDialogFragment waitForBt  = null;
     private String[] macs = null;
-    private BluetoothDevice[] devices = new BluetoothDevice[4];
     private short interval = 500;
     private boolean addedFragments = false;
     private SensorDataLoggerFragment[] loggerFragments = null;
@@ -44,16 +43,16 @@ public class MainActivity extends AppCompatActivity{
     private ServiceConnection sc = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            for(int i = 0 ; i < macs.length ; i++) {
-                if(macs[i] == null || macs[i].length() != 17)
+            for(String mac : macs) {
+                if(mac == null || mac.length() != 17)
                     continue;
-                devices[i] = BleService.connectGattDevice(MainActivity.this, macs[i]);
-                BleService.enableSensor(devices[i], Sensor.ACCELEROMETER2G);
-                BleService.enableSensor(devices[i], Sensor.GYROSCOPE_XY);
-                BleService.setSensorNotificationPeriod(devices[i], Sensor.ACCELEROMETER2G, interval);
-                BleService.setSensorNotificationPeriod(devices[i], Sensor.GYROSCOPE_XY, interval);
-                BleService.setSensorNotification(devices[i], Sensor.ACCELEROMETER2G, true);
-                BleService.setSensorNotification(devices[i], Sensor.GYROSCOPE_XY, true);
+                BluetoothDevice device = BleService.connectGattDevice(MainActivity.this, mac);
+                BleService.enableSensor(device, Sensor.ACCELEROMETER2G);
+                BleService.enableSensor(device, Sensor.GYROSCOPE_XY);
+                BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER2G, interval);
+                BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE_XY, interval);
+                BleService.setSensorNotification(device, Sensor.ACCELEROMETER2G, true);
+                BleService.setSensorNotification(device, Sensor.GYROSCOPE_XY, true);
             }
         }
 
@@ -215,14 +214,12 @@ public class MainActivity extends AppCompatActivity{
         try{
             if(Short.parseShort(intStr) != interval){
                 interval = Short.parseShort(intStr);
-                for(BluetoothDevice device : devices)
-                    if(device != null) {
-                        BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER2G, interval);
-                        BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE_XY, interval);
-                    }
                 for(String mac : macs)
-                    if(mac != null && mac.length() == 17)
-                        ((SensorFragment)fragmentManager.findFragmentByTag(mac)).setInterval(interval);
+                    if(mac != null && mac.length() == 17) {
+                        BleService.setSensorNotificationPeriod(mac, Sensor.ACCELEROMETER2G, interval);
+                        BleService.setSensorNotificationPeriod(mac, Sensor.GYROSCOPE_XY, interval);
+                        ((SensorFragment) fragmentManager.findFragmentByTag(mac)).setInterval(interval);
+                    }
             }
         }catch(NumberFormatException nfe){
             Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
