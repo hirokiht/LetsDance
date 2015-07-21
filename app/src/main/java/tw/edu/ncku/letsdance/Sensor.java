@@ -54,14 +54,11 @@
  **************************************************************************************************/
 package tw.edu.ncku.letsdance;
 
-//import static android.bluetooth.BluetoothGattCharacteristic.FORMAT_UINT8;
 import static tw.edu.ncku.letsdance.SensorTagGatt.*;
 import static java.lang.Math.pow;
 
 import java.util.List;
 import java.util.UUID;
-import android.bluetooth.BluetoothGattCharacteristic;
-// import android.util.Log;
 
 
 /**
@@ -125,24 +122,11 @@ public enum Sensor {
   		 * The z value is multiplied with -1 to coincide with how we have arbitrarily defined the positive y direction. (illustrated by the apps accelerometer
   		 * image)
   		 */
-		//	DeviceActivity da = DeviceActivity.getInstance();
-
-        if (false){//da.isSensorTag2()) {
-  			// Range 8G
-  			final float SCALE = (float) 4096.0;
-  			
-  			int x = (value[0]<<8) + value[1];
-  			int y = (value[2]<<8) + value[3];
-  			int z = (value[4]<<8) + value[5]; 
-  			return new float[]{x / SCALE, y / SCALE, z / SCALE};
-  		} else {
-  			Integer x = (int) value[0];
-  			Integer y = (int) value[1];
-  			Integer z = (int) value[2] * -1;
-            final float SCALE = (true/*da.firmwareRevision().contains("1.5")*/)? 64.0f : 16.0f;
-            return new float[]{x / SCALE, y / SCALE, z / SCALE};
-  		}
-
+          Integer x = (int) value[0];
+          Integer y = (int) value[1];
+          Integer z = (int) value[2] * -1;
+          final float SCALE = 64.0f;
+          return new float[]{x / SCALE, y / SCALE, z / SCALE};
   	}
   },ACCELEROMETER4G(UUID_ACC_SERV, UUID_ACC_DATA, UUID_ACC_CONF, UUID_ACC_PERI, (byte)2) {
     @Override
@@ -236,17 +220,15 @@ public enum Sensor {
   GYROSCOPE_X(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)1) {
     @Override
     public float[] convert(final byte [] value) {
-      float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
-      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
-      return new float[]{x,y,0.0f};
+      float x = shortSignedAtOffset(value, 0) * (500f / 65536f);
+      return new float[]{x};
     }
   },
   GYROSCOPE_Y(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)2) {
     @Override
     public float[] convert(final byte [] value) {
       float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
-      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
-      return new float[]{x,y,0.0f};
+      return new float[]{y};
     }
   },
   GYROSCOPE_XY(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)3) {
@@ -254,106 +236,65 @@ public enum Sensor {
     public float[] convert(final byte [] value) {
       float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
       float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
-      return new float[]{x,y,0.0f};
+      return new float[]{x,y};
     }
   },
   GYROSCOPE_Z(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)4) {
     @Override
     public float[] convert(final byte [] value) {
-      float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
-      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
-      return new float[]{x,y,0.0f};
+      float z = shortSignedAtOffset(value, 0) * (500f / 65536f);
+      return new float[]{z};
     }
   },
   GYROSCOPE_XZ(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)5) {
     @Override
     public float[] convert(final byte [] value) {
-      float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
-      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
-      return new float[]{x,y,0.0f};
+      float x = shortSignedAtOffset(value, 0) * (500f / 65536f);
+      float z = shortSignedAtOffset(value, 2) * (500f / 65536f);
+      return new float[]{x,z};
     }
   },
   GYROSCOPE_YZ(UUID_GYR_SERV, UUID_GYR_DATA, UUID_GYR_CONF, UUID_GYR_PERI, (byte)6) {
     @Override
     public float[] convert(final byte [] value) {
       float y = shortSignedAtOffset(value, 0) * (500f / 65536f) * -1;
-      float x = shortSignedAtOffset(value, 2) * (500f / 65536f);
-      return new float[]{x,y,0.0f};
+      float z = shortSignedAtOffset(value, 2) * (500f / 65536f);
+      return new float[]{y,z};
     }
   },
 
   BAROMETER(UUID_BAR_SERV, UUID_BAR_DATA, UUID_BAR_CONF, UUID_BAR_PERI) {
     @Override
     public float[] convert(final byte [] value) {
+        if (barometerCalibrationCoefficients == null) {
+            // Log.w("Sensor", "Data notification arrived for barometer before it was calibrated.");
+            return null;
+        }
 
-    	if (false){//DeviceActivity.getInstance().isSensorTag2()) {
-            int mantissa;
-            int exponent;
-            Integer sfloat= shortUnsignedAtOffset(value, 2);
+        final int[] c; // Calibration coefficients
+        final Integer t_r; // Temperature raw value from sensor
+        final Integer p_r; // Pressure raw value from sensor
+        final Double S; // Interim value in calculation
+        final Double O; // Interim value in calculation
+        final Double p_a; // Pressure actual value in unit Pascal.
 
-            mantissa = sfloat & 0x0FFF;
-            exponent = (sfloat >> 12) & 0xFF;
+        c = new int[barometerCalibrationCoefficients.size()];
+        for (int i = 0; i < barometerCalibrationCoefficients.size(); i++) {
+            c[i] = barometerCalibrationCoefficients.get(i);
+        }
 
-            double magnitude = pow(2.0f, exponent);
-            float output = (float)(mantissa * magnitude);
+        t_r = shortSignedAtOffset(value, 0);
+        p_r = shortUnsignedAtOffset(value, 2);
 
-            return new float[]{output / 100.0f};
-    	} else {
-    		if (barometerCalibrationCoefficients == null) {
-    			// Log.w("Sensor", "Data notification arrived for barometer before it was calibrated.");
-    			return null;
-    		}
+        S = c[2] + c[3] * t_r / pow(2, 17) + ((c[4] * t_r / pow(2, 15)) * t_r) / pow(2, 19);
+        O = c[5] * pow(2, 14) + c[6] * t_r / pow(2, 3) + ((c[7] * t_r / pow(2, 15)) * t_r) / pow(2, 4);
+        p_a = (S * p_r + O) / pow(2, 14);
 
-    		final int[] c; // Calibration coefficients
-    		final Integer t_r; // Temperature raw value from sensor
-    		final Integer p_r; // Pressure raw value from sensor
-    		final Double S; // Interim value in calculation
-    		final Double O; // Interim value in calculation
-    		final Double p_a; // Pressure actual value in unit Pascal.
-
-    		c = new int[barometerCalibrationCoefficients.size()];
-    		for (int i = 0; i < barometerCalibrationCoefficients.size(); i++) {
-    			c[i] = barometerCalibrationCoefficients.get(i);
-    		}
-
-    		t_r = shortSignedAtOffset(value, 0);
-    		p_r = shortUnsignedAtOffset(value, 2);
-
-    		S = c[2] + c[3] * t_r / pow(2, 17) + ((c[4] * t_r / pow(2, 15)) * t_r) / pow(2, 19);
-    		O = c[5] * pow(2, 14) + c[6] * t_r / pow(2, 3) + ((c[7] * t_r / pow(2, 15)) * t_r) / pow(2, 4);
-    		p_a = (S * p_r + O) / pow(2, 14);
-
-    		return new float[]{p_a.floatValue()};
-    	}
+        return new float[]{p_a.floatValue()};
     }
   },
 
   SIMPLE_KEYS(UUID_KEY_SERV, UUID_KEY_DATA, null, null) {
-    @Override
-    public byte convertKeys(final byte value) {
-  		/* Key mapping for SensorTagGatt:
-  		 * 0 - right key
-  		 * 1 - left key
-  		 * 2 - side key
-  		 */
-      byte keys = value;
-    	/*if (DeviceActivity.getInstance().isSensorTag2()) {
-    		/* Key mapping for SensorTagGatt 2:
-    		 * 0 - left key
-    		 * 1 - right key
-    		 * 2 - reed relay
-    		 *
-    		int t = keys;
-    		keys = t & 0x04;
-    		// Swapped keys compared to first SensorTagGatt
-    		if ( (t & 1) == 1)
-    			keys |= 2;
-    		if ( (t & 2) == 2 )
-    			keys |= 1;
-    	}*/
-
-      return keys;
-    }
   };
 
   /**
@@ -372,14 +313,6 @@ public enum Sensor {
     Integer lowerByte = (int) c[offset] & 0xFF; 
     Integer upperByte = (int) c[offset+1] & 0xFF; // // Interpret MSB as signed
     return (upperByte << 8) + lowerByte;
-  }
-
-  public void onCharacteristicChanged(BluetoothGattCharacteristic c) {
-    throw new UnsupportedOperationException("Error: the individual enum classes are supposed to override this method.");
-  }
-
-  public byte convertKeys(byte value) {
-    throw new UnsupportedOperationException("Error: the individual enum classes are supposed to override this method.");
   }
 
   public float[] convert(byte[] value) {
