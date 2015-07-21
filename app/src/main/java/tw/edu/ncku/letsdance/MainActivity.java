@@ -37,7 +37,7 @@ public class MainActivity extends AppCompatActivity{
     private boolean addedFragments = false;
     private SensorDataLoggerFragment loggerFragment = SensorDataLoggerFragment.newInstance();
     private SharedPreferences preferences;
-    private boolean log = false;
+    private ToggleButton logBtn = null;
 
     private ServiceConnection sc = new ServiceConnection() {
         @Override
@@ -91,6 +91,7 @@ public class MainActivity extends AppCompatActivity{
     @Override
     protected void onResume(){  //this will occur after onStart hence will be called when bt is enabled
         super.onResume();
+        logBtn = (ToggleButton) findViewById(R.id.logBtn);
         if(addedFragments || BluetoothAdapter.getDefaultAdapter() == null || !BluetoothAdapter.getDefaultAdapter().isEnabled())
             return;
         addedFragments = true;
@@ -251,16 +252,11 @@ public class MainActivity extends AppCompatActivity{
         float[] p = (sensor == Sensor.ACCELEROMETER) ? Sensor.ACCELEROMETER2G.convert(data) :
                 (sensor == Sensor.GYROSCOPE) ? Sensor.GYROSCOPE_XY.convert(data) : sensor.convert(data);
         for (String mac : macs)
-            if (log && mac != null && mac.equals(device.getAddress()))
+            if (logBtn.isChecked() && mac != null && mac.equals(device.getAddress()))
                 loggerFragment.logData(device.getAddress()+"-"+sensor.name(), p);
         SensorFragment sf = (SensorFragment) fragmentManager.findFragmentByTag(device.getAddress());
         if(sf != null)
             sf.addSensorData(sensor,p);
-    }
-
-    public void onToggleClicked(View view){
-        ToggleButton btn = (ToggleButton) view;
-        log = btn.isChecked();
     }
 
     public void onSaveClicked(View view){

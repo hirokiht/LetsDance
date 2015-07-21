@@ -9,8 +9,7 @@ android:id="@+id/MainLayout" android:layout_width="match_parent" android:layout_
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textOn="Stop Log"
-        android:textOff="Start Log"
-        android:onClick="onToggleClicked" />
+        android:textOff="Start Log" />
     <Button
         android:id="@+id/saveBtn"
         android:layout_width="wrap_content"
