@@ -132,7 +132,6 @@ public class SensorFragment extends Fragment {
                         gyro = p.clone();
                     if(gyro == null || acc == null)
                         return;
-                    sensorData.addXValue(String.valueOf(sensorData.getXValCount()));
                     final float t = interval/1000.0f; //convert from ms to s
                     final float[] accDeg = {(float)Math.atan2(-lpfAcc   [1],lpfAcc[2])*180.0f/(float)Math.PI,
                             (float)Math.atan2(-lpfAcc[0],lpfAcc[2])*180.0f/(float)Math.PI,
@@ -140,15 +139,7 @@ public class SensorFragment extends Fragment {
                     final float[] gyroDeg = {deg[0]+gyro[0]*t,deg[1]+gyro[1]*t};
                     deg = new float[]{alpha*gyroDeg[0]+(1.0f-alpha)*accDeg[0],
                         alpha*gyroDeg[1]+(1.0f-alpha)*accDeg[1], accDeg[2]};
-                    sensorData.addEntry(new Entry(deg[0], sensorData.getXValCount()),0);
-                    sensorData.addEntry(new Entry(deg[1], sensorData.getXValCount()),1);
-                    sensorData.addEntry(new Entry(deg[2], sensorData.getXValCount()),2);
-                    sensorChart.notifyDataSetChanged();
-                    sensorChart.setVisibleXRange(25);
-                    if(sensorData.getXValCount() > 25) {
-                        sensorChart.moveViewToX(sensorData.getXValCount() - 25);
-                    }
-                    sensorChart.invalidate();
+                    addEntry(deg);
                 } else Log.d("onReceive", "broadcast received, type: " + type);
             }
         } ,new IntentFilter("btCb"));
@@ -158,6 +149,20 @@ public class SensorFragment extends Fragment {
     public void onDestroy(){
         getActivity().getApplication().unbindService(sc);
         super.onDestroy();
+    }
+
+    public void addEntry(float[] entries){
+        if(entries == null || entries.length > 3)
+            return;
+        sensorData.addXValue(String.valueOf(sensorData.getXValCount()));
+        for(int i = 0 ; i < entries.length ; i++)
+            sensorData.addEntry(new Entry(entries[i], sensorData.getXValCount()),i);
+        sensorChart.notifyDataSetChanged();
+        sensorChart.setVisibleXRange(25);
+        if(sensorData.getXValCount() > 25) {
+            sensorChart.moveViewToX(sensorData.getXValCount() - 25);
+        }
+        sensorChart.invalidate();
     }
 
     @Override
