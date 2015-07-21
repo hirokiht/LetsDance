@@ -27,7 +27,7 @@ import java.util.Arrays;
  */
 public class SensorDataLoggerFragment extends Fragment {
     private String mac;
-    private SimpleArrayMap<Sensor,ArrayList<float[]>> data = new SimpleArrayMap<>();
+    private SimpleArrayMap<String,ArrayList<float[]>> data = new SimpleArrayMap<>();
     private boolean log = false;
 
     /**
@@ -66,12 +66,16 @@ public class SensorDataLoggerFragment extends Fragment {
                     byte[] rawData = intent.getByteArrayExtra("data");
                     float[] p = (s == Sensor.ACCELEROMETER)? Sensor.ACCELEROMETER4G.convert(rawData) :
                             (s == Sensor.GYROSCOPE)? Sensor.GYROSCOPE_XY.convert(rawData) : s.convert(rawData);
-                    if(!data.containsKey(s))
-                        data.put(s,new ArrayList<float[]>());
-                    data.get(s).add(p);
+                    logData(s.name(),p);
                 }else Log.d("onReceive", "broadcast received, type: " + type);
             }
         } ,new IntentFilter("btCb"));
+    }
+
+    public void logData(String key, float[] value){
+        if(!data.containsKey(key))
+            data.put(key,new ArrayList<float[]>());
+        data.get(key).add(value);
     }
 
     public void start(){
@@ -87,7 +91,7 @@ public class SensorDataLoggerFragment extends Fragment {
             throw new IOException("ext storage not mounted! State: "+Environment.getExternalStorageState());
         final File dir = getActivity().getExternalFilesDir(null);
         for(int i = 0 ; i < data.size() ; i++){
-            File fp = new File(dir,data.keyAt(i).name()+"-"+mac+".csv");
+            File fp = new File(dir,data.keyAt(i)+"-"+mac+".csv");
             BufferedWriter writer = new BufferedWriter(new FileWriter(fp));
             for(float[] d : data.valueAt(i)) {
                 writer.write(Arrays.toString(d));
