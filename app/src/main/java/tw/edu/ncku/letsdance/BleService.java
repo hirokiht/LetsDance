@@ -152,17 +152,21 @@ public class BleService extends Service {
 
     public static BluetoothDevice connectGattDevice(Context ctx, String mac){
         final BluetoothDevice device = btAdapter.getRemoteDevice(mac);
-        connectGattDevice(ctx,device);
+        connectGattDevice(ctx, device);
         return device;
     }
 
     public static void connectGattDevice(Context ctx, BluetoothDevice device){
         if(device.getBondState() != BluetoothDevice.BOND_NONE)
             return;
-        BluetoothGatt gatt = device.connectGatt(ctx,false,btGattCb);
+        BluetoothGatt gatt = device.connectGatt(ctx, false, btGattCb);
         btGatts.put(device,gatt);
         busy.put(device, true);
         requests.put(device, new LinkedList<BtRequest>());
+    }
+
+    public static boolean enableSensor(final String device, final Sensor sensor) {
+        return enableSensor(btAdapter.getRemoteDevice(device),sensor);
     }
 
     public static boolean enableSensor(final BluetoothDevice device, final Sensor sensor) {
@@ -185,6 +189,9 @@ public class BleService extends Service {
         };
         return busy.get(device)? requests.get(device).offer(req) : req.execute();
     }
+    public static boolean readSensor(final String device, final Sensor sensor){
+        return readSensor(btAdapter.getRemoteDevice(device),sensor);
+    }
 
     public static boolean readSensor(final BluetoothDevice device, final Sensor sensor){
         final BluetoothGatt btGatt = btGatts.get(device);
@@ -202,6 +209,10 @@ public class BleService extends Service {
             }
         };
         return busy.get(device)? requests.get(device).offer(request) : request.execute();
+    }
+
+    public static boolean setSensorNotification(final String device, final Sensor sensor, final boolean enable){
+        return setSensorNotification(btAdapter.getRemoteDevice(device),sensor,enable);
     }
 
     public static boolean setSensorNotification(final BluetoothDevice device, final Sensor sensor, final boolean enable){
@@ -222,6 +233,10 @@ public class BleService extends Service {
             }
         };
         return busy.get(device)? requests.get(device).offer(request) : request.execute();
+    }
+
+    public static boolean setSensorNotificationPeriod(final String device, final Sensor sensor, final int period){
+        return setSensorNotificationPeriod(btAdapter.getRemoteDevice(device),sensor,period);
     }
 
     public static boolean setSensorNotificationPeriod(final BluetoothDevice device, final Sensor sensor, final int period){
