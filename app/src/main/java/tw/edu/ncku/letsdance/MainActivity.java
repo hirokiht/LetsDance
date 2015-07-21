@@ -3,12 +3,16 @@ package tw.edu.ncku.letsdance;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -30,6 +34,7 @@ public class MainActivity extends AppCompatActivity{
     private boolean addedFragments = false;
     private SensorDataLoggerFragment[] loggerFragments = null;
     private SharedPreferences preferences;
+    private boolean log = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,6 +88,23 @@ public class MainActivity extends AppCompatActivity{
             ft.add(loggerFragments[i], null);
         }
         ft.commit();
+        LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String type = intent.getStringExtra("type");
+                if(!type.equals("read") && !type.equals("notify"))
+                    return;
+                String origin = ((BluetoothDevice) intent.getParcelableExtra("btDevice")).getAddress();
+                byte[] rawData = intent.getByteArrayExtra("data");
+                Sensor s = (Sensor) intent.getSerializableExtra(type);
+                float[] p = (s == Sensor.ACCELEROMETER) ? Sensor.ACCELEROMETER4G.convert(rawData) :
+                        (s == Sensor.GYROSCOPE) ? Sensor.GYROSCOPE_XY.convert(rawData) : s.convert(rawData);
+                for(int i = 0 ; i < macs.length ; i ++)
+                    if(macs[i] != null && macs[i].equals(origin))
+                        if(log && loggerFragments[i] != null)
+                            loggerFragments[i].logData(s.name(),p);
+            }
+        }, new IntentFilter("btCb"));
     }
 
     @Override
@@ -190,11 +212,7 @@ public class MainActivity extends AppCompatActivity{
 
     public void onToggleClicked(View view){
         ToggleButton btn = (ToggleButton) view;
-        for(SensorDataLoggerFragment logFrag : loggerFragments)
-            if(logFrag != null)
-                if(btn.isChecked())
-                    logFrag.start();
-                else logFrag.stop();
+        log = btn.isChecked();
     }
 
     public void onSaveClicked(View view){
