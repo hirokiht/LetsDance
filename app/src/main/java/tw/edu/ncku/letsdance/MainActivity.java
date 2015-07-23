@@ -86,30 +86,27 @@ public class MainActivity extends AppCompatActivity{
                         (Sensor) intent.getSerializableExtra(type), intent.getByteArrayExtra("data"));
             }
         }, new IntentFilter("btCb"));
-        if(savedInstanceState != null && savedInstanceState.containsKey("btEnable") &&
-                !savedInstanceState.getBoolean("btEnable") ) {
-            btEnable = false;
-            return;
-        }
         setContentView(R.layout.activity_main);
-        if(BluetoothAdapter.getDefaultAdapter() == null) {
+        if(savedInstanceState != null && savedInstanceState.containsKey("btEnable") &&
+                !savedInstanceState.getBoolean("btEnable") ) {  //previously denied bt or no bt
+            btEnable = false;
+        }else if(BluetoothAdapter.getDefaultAdapter() == null) {    //currently no bluetooth
             btEnable = false;
             onActivityResult(REQUEST_ENABLE_BT,RESULT_CANCELED,null);   //show error
-        }else if(BluetoothAdapter.getDefaultAdapter().isEnabled()) {
+        }else if(BluetoothAdapter.getDefaultAdapter().isEnabled()) {    //bt enabled
             btEnable = true;
             addBtDependentComponents();
-        }else{
+        }else{  //bt not enabled but have bt
             if(fragmentManager.findFragmentByTag("waitForBt") == null) {
-                DialogFragment df = new DialogFragment() {
+                new DialogFragment() {
                     @Override
                     public Dialog onCreateDialog(Bundle savedInstanceState) {
+                        this.setRetainInstance(true);
                         return ProgressDialog.show(getActivity(), getString(R.string.bt_not_enabled), getString(R.string.wait_for_bt_enable), true, true);
                     }
-                };
-                df.setRetainInstance(true);
-                df.show(fragmentManager, "waitForBt");
+                }.show(fragmentManager, "waitForBt");
             }
-            if(savedInstanceState == null)
+            if(savedInstanceState == null)  //request bt if it is the first time starting this app
                 startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP), REQUEST_ENABLE_BT);
             Log.d("MainActivity.onCreate", "Waiting for enabling bt!");
@@ -132,7 +129,7 @@ public class MainActivity extends AppCompatActivity{
 
     @Override
     protected void onStop() {
-        finishActivity(REQUEST_ENABLE_BT);
+//        finishActivity(REQUEST_ENABLE_BT);
         super.onStop();
     }
 
@@ -158,6 +155,7 @@ public class MainActivity extends AppCompatActivity{
                 new DialogFragment(){
                     @Override
                     public Dialog onCreateDialog(Bundle savedInstanceState) {
+                        this.setRetainInstance(true);
                         return new AlertDialog.Builder(getActivity()).setTitle(R.string.need_bt).setMessage(R.string.bt_not_found)
                                 .setNeutralButton("OK", new DialogInterface.OnClickListener() {
                                     @Override
@@ -223,10 +221,10 @@ public class MainActivity extends AppCompatActivity{
             ab.setDisplayHomeAsUpEnabled(false);
             ab.setSubtitle(null);
         }
-        String intStr = preferences.getString("interval", null);
         try{
-            if(Short.parseShort(intStr) != interval){
-                interval = Short.parseShort(intStr);
+            short newInterval = Short.parseShort(preferences.getString("interval", null));
+            if(newInterval != interval){
+                interval = newInterval;
                 for(String mac : macs)
                     if(mac != null && mac.length() == 17) {
                         BleService.setSensorNotificationPeriod(mac, Sensor.ACCELEROMETER2G, interval);
