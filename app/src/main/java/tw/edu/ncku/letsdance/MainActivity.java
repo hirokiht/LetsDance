@@ -27,7 +27,6 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import java.io.IOException;
@@ -284,7 +283,7 @@ public class MainActivity extends AppCompatActivity{
         try{
             loggerFragment.writeToExtStorage();
         }catch(IOException ioe){
-            Toast.makeText(this,ioe.getMessage(),Toast.LENGTH_SHORT).show();
+            Log.d("onSaveClicked","IOException: "+ioe.getMessage());
             ioe.printStackTrace();
         }
     }
