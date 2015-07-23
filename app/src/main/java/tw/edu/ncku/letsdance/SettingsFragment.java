@@ -1,18 +1,11 @@
 package tw.edu.ncku.letsdance;
 
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothProfile;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Bundle;
 import android.preference.EditTextPreference;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceFragment;
-import android.support.v4.content.LocalBroadcastManager;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -34,7 +27,6 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        BluetoothManager btManager = (BluetoothManager) getActivity().getSystemService(Context.BLUETOOTH_SERVICE);
         addPreferencesFromResource(R.xml.preferences);
         macs = new ListPreference[]{(ListPreference)findPreference("mac0"),(ListPreference)findPreference("mac1"),
                 (ListPreference)findPreference("mac2"),(ListPreference)findPreference("mac3")};
@@ -48,16 +40,6 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
             if(mac.getValue() == null)
                 mac.setValueIndex(0);
         }
-        for(BluetoothDevice device : btManager.getConnectedDevices(BluetoothProfile.GATT))
-            addBluetoothDeviceToList(device);
-        LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new BroadcastReceiver(){
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if(intent.getStringExtra("type").equals("device"))
-                    addBluetoothDeviceToList((BluetoothDevice) intent.getParcelableExtra("device"));
-            }
-        } ,new IntentFilter("btCb"));
-        BleService.discoverDevices(getActivity());
     }
 
     @Override

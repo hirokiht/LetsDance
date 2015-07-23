@@ -7,6 +7,8 @@ import android.app.FragmentTransaction;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -80,9 +82,11 @@ public class MainActivity extends AppCompatActivity{
             @Override
             public void onReceive(Context context, Intent intent) {
                 String type = intent.getStringExtra("type");
-                if (!type.equals("read") && !type.equals("notify"))
-                    return;
-                updateDeviceSensorData((BluetoothDevice) intent.getParcelableExtra("btDevice"),
+                if(fragmentManager.findFragmentByTag("settingsFragment") != null && type.equals("device"))
+                    ((SettingsFragment)fragmentManager.findFragmentByTag("settingsFragment"))
+                            .addBluetoothDeviceToList((BluetoothDevice) intent.getParcelableExtra("device"));
+                if (type.equals("read") || type.equals("notify"))
+                    updateDeviceSensorData((BluetoothDevice) intent.getParcelableExtra("btDevice"),
                         (Sensor) intent.getSerializableExtra(type), intent.getByteArrayExtra("data"));
             }
         }, new IntentFilter("btCb"));
@@ -190,7 +194,12 @@ public class MainActivity extends AppCompatActivity{
             for(String mac : macs)
                 if(mac != null && mac.length() == 17 && fragmentManager.findFragmentByTag(mac) != null)
                     ft.hide(fragmentManager.findFragmentByTag(mac));
-            ft.add(R.id.MainLayout, new SettingsFragment()).addToBackStack(null).commit();
+            SettingsFragment sf = new SettingsFragment();
+            ft.add(R.id.MainLayout, sf, "settingsFragment").addToBackStack(null).commit();
+            BleService.discoverDevices(this);
+            BluetoothManager btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+            for(BluetoothDevice device : btManager.getConnectedDevices(BluetoothProfile.GATT))
+                sf.addBluetoothDeviceToList(device);
             findViewById(R.id.action_settings).setVisibility(View.GONE);
             findViewById(R.id.BtnLyt).setVisibility(View.GONE);
             if(ab != null) {
