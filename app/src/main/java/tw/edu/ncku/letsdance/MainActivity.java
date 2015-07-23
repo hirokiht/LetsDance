@@ -82,13 +82,16 @@ public class MainActivity extends AppCompatActivity{
         }else if(BluetoothAdapter.getDefaultAdapter().isEnabled())
             btEnable = true;
         else{
-            if(fragmentManager.findFragmentByTag("waitForBt") == null)
-                new DialogFragment(){
+            if(fragmentManager.findFragmentByTag("waitForBt") == null) {
+                DialogFragment df = new DialogFragment() {
                     @Override
                     public Dialog onCreateDialog(Bundle savedInstanceState) {
                         return ProgressDialog.show(getActivity(), getString(R.string.bt_not_enabled), getString(R.string.wait_for_bt_enable), true, true);
                     }
-                }.show(fragmentManager, "waitForBt");
+                };
+                df.setRetainInstance(true);
+                df.show(fragmentManager, "waitForBt");
+            }
             if(savedInstanceState == null)
                 startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP), REQUEST_ENABLE_BT);
@@ -163,7 +166,7 @@ public class MainActivity extends AppCompatActivity{
                 }
             }
             if (fragmentManager.findFragmentByTag("waitForBt") != null)
-                ((DialogFragment)fragmentManager.findFragmentByTag("waitForBt")).dismissAllowingStateLoss();
+                ((DialogFragment)fragmentManager.findFragmentByTag("waitForBt")).dismiss();
             if(!btEnable)
                 new DialogFragment(){
                     @Override
