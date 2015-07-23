@@ -38,7 +38,6 @@ public class MainActivity extends AppCompatActivity{
     private FragmentManager fragmentManager = null;
     private String[] macs = null;
     private short interval = 500;
-    private boolean addedFragments = false;
     private SensorDataLoggerFragment loggerFragment = SensorDataLoggerFragment.newInstance();
     private SharedPreferences preferences;
     private ToggleButton logBtn = null;
@@ -92,8 +91,6 @@ public class MainActivity extends AppCompatActivity{
             btEnable = false;
             return;
         }
-        if(savedInstanceState != null)
-            addedFragments = savedInstanceState.getBoolean("addedFragments");
         setContentView(R.layout.activity_main);
         if(BluetoothAdapter.getDefaultAdapter() == null) {
             btEnable = false;
@@ -128,7 +125,6 @@ public class MainActivity extends AppCompatActivity{
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         finishActivity(REQUEST_ENABLE_BT);
-        outState.putBoolean("addedFragments", addedFragments);
         if(btEnable != null)
             outState.putBoolean("btEnable",btEnable);
         super.onSaveInstanceState(outState);
@@ -259,7 +255,6 @@ public class MainActivity extends AppCompatActivity{
     }
 
     private void addBtDependentComponents(){
-        addedFragments = true;
         for(String mac : macs)
             if(mac != null && mac.length() == 17 && fragmentManager.findFragmentByTag(mac) == null)
                 fragmentManager.beginTransaction().add(R.id.MainLayout, SensorFragment.newInstance(mac,interval), mac).commit();
