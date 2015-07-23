@@ -1,21 +1,27 @@
 package tw.edu.ncku.letsdance;
 
+import android.app.Dialog;
+import android.app.DialogFragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
+import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.ActionBar;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
@@ -31,7 +37,6 @@ public class MainActivity extends AppCompatActivity{
     private final static int REQUEST_ENABLE_BT = 1;
     private Boolean btEnable = null;
     private FragmentManager fragmentManager = null;
-    private ProgressDialogFragment waitForBt = null;
     private String[] macs = null;
     private short interval = 500;
     private boolean addedFragments = false;
@@ -73,17 +78,21 @@ public class MainActivity extends AppCompatActivity{
             addedFragments = savedInstanceState.getBoolean("addedFragments");
         setContentView(R.layout.activity_main);
         if(BluetoothAdapter.getDefaultAdapter() == null) {
-            AlertDialogFragment.newInstance(R.string.need_bt, R.string.bt_not_found)
-                    .show(fragmentManager, "dialog");
             btEnable = false;
+            onActivityResult(REQUEST_ENABLE_BT,RESULT_CANCELED,null);   //show error
         }else if(BluetoothAdapter.getDefaultAdapter().isEnabled())
             btEnable = true;
         else{
+            if(fragmentManager.findFragmentByTag("waitForBt") == null)
+                new DialogFragment(){
+                    @Override
+                    public Dialog onCreateDialog(Bundle savedInstanceState) {
+                        return ProgressDialog.show(getActivity(), getString(R.string.bt_not_enabled), getString(R.string.wait_for_bt_enable), true, true);
+                    }
+                }.show(fragmentManager, "waitForBt");
             if(savedInstanceState == null)
                 startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP), REQUEST_ENABLE_BT);
-            waitForBt = ProgressDialogFragment.newInstance(R.string.bt_not_enabled, R.string.wait_for_bt_enable);
-            waitForBt.show(fragmentManager, "dialog");
             Log.d("MainActivity.onCreate", "Waiting for enabling bt!");
         }
     }
@@ -125,8 +134,6 @@ public class MainActivity extends AppCompatActivity{
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        if (waitForBt != null)
-            waitForBt.dismissAllowingStateLoss();
         finishActivity(REQUEST_ENABLE_BT);
         outState.putBoolean("addedFragments", addedFragments);
         if(btEnable != null)
@@ -136,28 +143,42 @@ public class MainActivity extends AppCompatActivity{
 
     @Override
     protected void onStop() {
-        if(waitForBt != null)
-            waitForBt.dismissAllowingStateLoss();
         finishActivity(REQUEST_ENABLE_BT);
         super.onStop();
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data){
+    protected void onActivityResult(int requestCode, final int resultCode, Intent data){
         if(requestCode == REQUEST_ENABLE_BT){
-            btEnable = (resultCode == RESULT_OK || BluetoothAdapter.getDefaultAdapter().isEnabled());
-            if(!btEnable)
-                try {   //wait a while for BT to enable, resultCode not accurate after recreated, ugly hack but works
-                    Thread.sleep(2000);
-                }catch(InterruptedException ie){
-                    Log.d("onAcitivtyResult","Interrupted Sleeping...");
+            if(btEnable == null) {
+                btEnable = (resultCode == RESULT_OK || BluetoothAdapter.getDefaultAdapter().isEnabled());
+                if (!btEnable){ //wait for a while for BT to be enabled, resultCode may not be accurate
+                    new Handler().postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            btEnable = BluetoothAdapter.getDefaultAdapter().isEnabled();
+                            onActivityResult(REQUEST_ENABLE_BT, resultCode, null);
+                        }
+                    }, 2000);
+                    return;
                 }
-            if(waitForBt != null)
-                waitForBt.dismissAllowingStateLoss();
-            btEnable = (resultCode == RESULT_OK || BluetoothAdapter.getDefaultAdapter().isEnabled());
+            }
+            if (fragmentManager.findFragmentByTag("waitForBt") != null)
+                ((DialogFragment)fragmentManager.findFragmentByTag("waitForBt")).dismissAllowingStateLoss();
             if(!btEnable)
-                AlertDialogFragment.newInstance(R.string.need_bt, R.string.bt_not_found)
-                        .show(fragmentManager, "dialog");
+                new DialogFragment(){
+                    @Override
+                    public Dialog onCreateDialog(Bundle savedInstanceState) {
+                        return new AlertDialog.Builder(getActivity()).setTitle(R.string.need_bt).setMessage(R.string.bt_not_found)
+                                .setNeutralButton("OK", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        dismiss();
+                                        getActivity().finish();
+                                    }
+                                }).create();
+                    }
+                }.show(fragmentManager, "NoBtAlertDialog");
         }
     }
 
