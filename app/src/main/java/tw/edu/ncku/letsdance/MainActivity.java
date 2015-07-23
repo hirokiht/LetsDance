@@ -68,6 +68,25 @@ public class MainActivity extends AppCompatActivity{
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         fragmentManager = getFragmentManager();
+        preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        macs = new String[]{ preferences.getString("mac0",null),preferences.getString("mac1",null),
+                preferences.getString("mac2",null), preferences.getString("mac3",null) };
+        try{
+            interval = Short.parseShort(preferences.getString("interval",null));
+        }catch(NumberFormatException nfe){
+            Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
+        }
+        fragmentManager.beginTransaction().add(loggerFragment, null).commit();
+        LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String type = intent.getStringExtra("type");
+                if (!type.equals("read") && !type.equals("notify"))
+                    return;
+                updateDeviceSensorData((BluetoothDevice) intent.getParcelableExtra("btDevice"),
+                        (Sensor) intent.getSerializableExtra(type), intent.getByteArrayExtra("data"));
+            }
+        }, new IntentFilter("btCb"));
         if(savedInstanceState != null && savedInstanceState.containsKey("btEnable") &&
                 !savedInstanceState.getBoolean("btEnable") ) {
             btEnable = false;
@@ -79,9 +98,10 @@ public class MainActivity extends AppCompatActivity{
         if(BluetoothAdapter.getDefaultAdapter() == null) {
             btEnable = false;
             onActivityResult(REQUEST_ENABLE_BT,RESULT_CANCELED,null);   //show error
-        }else if(BluetoothAdapter.getDefaultAdapter().isEnabled())
+        }else if(BluetoothAdapter.getDefaultAdapter().isEnabled()) {
             btEnable = true;
-        else{
+            addBtDependentComponents();
+        }else{
             if(fragmentManager.findFragmentByTag("waitForBt") == null) {
                 DialogFragment df = new DialogFragment() {
                     @Override
@@ -100,38 +120,9 @@ public class MainActivity extends AppCompatActivity{
     }
 
     @Override
-    protected void onResume(){  //this will occur after onStart hence will be called when bt is enabled
-        super.onResume();
+    protected void onStart(){
+        super.onStart();
         logBtn = (ToggleButton) findViewById(R.id.logBtn);
-        if(addedFragments || BluetoothAdapter.getDefaultAdapter() == null || !BluetoothAdapter.getDefaultAdapter().isEnabled())
-            return;
-        addedFragments = true;
-        preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        macs = new String[]{ preferences.getString("mac0",null),preferences.getString("mac1",null),
-                preferences.getString("mac2",null), preferences.getString("mac3",null) };
-        String intStr = preferences.getString("interval",null);
-        try{
-            interval = Short.parseShort(intStr);
-        }catch(NumberFormatException nfe){
-            Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
-        }
-        for(String mac : macs)
-            if(mac != null && mac.length() == 17)
-                addSensorFragment(mac);
-        FragmentTransaction ft = fragmentManager.beginTransaction();
-        ft.add(loggerFragment, null);
-        ft.commit();
-        LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                String type = intent.getStringExtra("type");
-                if (!type.equals("read") && !type.equals("notify"))
-                    return;
-                updateDeviceSensorData((BluetoothDevice) intent.getParcelableExtra("btDevice"),
-                        (Sensor) intent.getSerializableExtra(type), intent.getByteArrayExtra("data"));
-            }
-        }, new IntentFilter("btCb"));
-        getApplication().bindService(new Intent(this, BleService.class), sc, BIND_AUTO_CREATE);
     }
 
     @Override
@@ -181,6 +172,7 @@ public class MainActivity extends AppCompatActivity{
                                 }).create();
                     }
                 }.show(fragmentManager, "NoBtAlertDialog");
+            else addBtDependentComponents();
         }
     }
 
@@ -202,7 +194,7 @@ public class MainActivity extends AppCompatActivity{
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             for(String mac : macs)
-                if(mac != null && mac.length() == 17)
+                if(mac != null && mac.length() == 17 && fragmentManager.findFragmentByTag(mac) != null)
                     ft.hide(fragmentManager.findFragmentByTag(mac));
             ft.add(R.id.MainLayout, new SettingsFragment()).addToBackStack(null).commit();
             findViewById(R.id.action_settings).setVisibility(View.GONE);
@@ -235,7 +227,7 @@ public class MainActivity extends AppCompatActivity{
             ab.setDisplayHomeAsUpEnabled(false);
             ab.setSubtitle(null);
         }
-        String intStr = preferences.getString("interval",null);
+        String intStr = preferences.getString("interval", null);
         try{
             if(Short.parseShort(intStr) != interval){
                 interval = Short.parseShort(intStr);
@@ -243,7 +235,8 @@ public class MainActivity extends AppCompatActivity{
                     if(mac != null && mac.length() == 17) {
                         BleService.setSensorNotificationPeriod(mac, Sensor.ACCELEROMETER2G, interval);
                         BleService.setSensorNotificationPeriod(mac, Sensor.GYROSCOPE_XY, interval);
-                        ((SensorFragment) fragmentManager.findFragmentByTag(mac)).setInterval(interval);
+                        if(fragmentManager.findFragmentByTag(mac) != null)
+                            ((SensorFragment) fragmentManager.findFragmentByTag(mac)).setInterval(interval);
                     }
             }
         }catch(NumberFormatException nfe){
@@ -253,7 +246,8 @@ public class MainActivity extends AppCompatActivity{
         for(int i = 0 ; i < 4 ; i++) {
             String newMac = preferences.getString("mac" + (char)('0'+i), null);
             if(macs[i] != null && macs[i].length() == 17 && !macs[i].equals(newMac)) {
-                ft.remove(fragmentManager.findFragmentByTag(macs[i]));
+                if(fragmentManager.findFragmentByTag(macs[i]) != null)
+                    ft.remove(fragmentManager.findFragmentByTag(macs[i]));
                 macs[i] = null;
             }
             if(newMac != null && newMac.length() == 17 && !newMac.equals(macs[i])){
@@ -264,11 +258,12 @@ public class MainActivity extends AppCompatActivity{
         ft.commit();
     }
 
-    private void addSensorFragment(String mac){
-        if(fragmentManager.findFragmentByTag(mac) == null) {
-            FragmentTransaction ft = fragmentManager.beginTransaction();
-            ft.add(R.id.MainLayout, SensorFragment.newInstance(mac,interval), mac).commit();
-        }
+    private void addBtDependentComponents(){
+        addedFragments = true;
+        for(String mac : macs)
+            if(mac != null && mac.length() == 17 && fragmentManager.findFragmentByTag(mac) == null)
+                fragmentManager.beginTransaction().add(R.id.MainLayout, SensorFragment.newInstance(mac,interval), mac).commit();
+        getApplication().bindService(new Intent(this, BleService.class), sc, BIND_AUTO_CREATE);
     }
 
     private void updateDeviceSensorData(BluetoothDevice device, Sensor sensor, byte[] data){
