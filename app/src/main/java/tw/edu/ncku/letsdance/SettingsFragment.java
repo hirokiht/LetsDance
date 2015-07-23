@@ -12,11 +12,7 @@ import android.preference.EditTextPreference;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceFragment;
-import android.support.annotation.NonNull;
 import android.support.v4.content.LocalBroadcastManager;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -25,12 +21,10 @@ import java.util.ArrayList;
 /**
  * A simple {@link PreferenceFragment} subclass.
  */
-public class SettingsFragment extends PreferenceFragment implements Preference.OnPreferenceChangeListener, Preference.OnPreferenceClickListener {
+public class SettingsFragment extends PreferenceFragment implements Preference.OnPreferenceChangeListener{
     ListPreference[] macs = null;
     EditTextPreference interval = null;
-    BluetoothManager btManager = null;
-    ArrayList<String> addresses = new ArrayList<>();
-    ArrayList<String> names = new ArrayList<>();
+    ArrayList<String> addresses = new ArrayList<>(), names = new ArrayList<>();
 
     public SettingsFragment() {
         addresses.add("");
@@ -40,7 +34,7 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        btManager = (BluetoothManager) getActivity().getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothManager btManager = (BluetoothManager) getActivity().getSystemService(Context.BLUETOOTH_SERVICE);
         addPreferencesFromResource(R.xml.preferences);
         macs = new ListPreference[]{(ListPreference)findPreference("mac0"),(ListPreference)findPreference("mac1"),
                 (ListPreference)findPreference("mac2"),(ListPreference)findPreference("mac3")};
@@ -49,46 +43,21 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
         interval.setOnPreferenceChangeListener(this);
         for(ListPreference mac : macs) {
             mac.setOnPreferenceChangeListener(this);
-            mac.setOnPreferenceClickListener(this);
             mac.setEntries(names.toArray(new String[names.size()]));
             mac.setEntryValues(addresses.toArray(new String[addresses.size()]));
             if(mac.getValue() == null)
                 mac.setValueIndex(0);
         }
-        for(BluetoothDevice device : btManager.getConnectedDevices(BluetoothProfile.GATT)){
-            if(addresses.contains(device.getAddress()))
-                continue;
-            addresses.add(device.getAddress());
-            names.add(device.getName()+" ("+device.getAddress()+")");
-            for(ListPreference mac : macs) {
-                mac.setEntries(names.toArray(new String[names.size()]));
-                mac.setEntryValues(addresses.toArray(new String[addresses.size()]));
-            }
-        }
+        for(BluetoothDevice device : btManager.getConnectedDevices(BluetoothProfile.GATT))
+            addBluetoothDeviceToList(device);
         LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new BroadcastReceiver(){
             @Override
             public void onReceive(Context context, Intent intent) {
-                if(!intent.getStringExtra("type").equals("device"))
-                    return;
-                final BluetoothDevice device = intent.getParcelableExtra("device");
-                if(addresses.contains(device.getAddress()))
-                    return;
-                addresses.add(device.getAddress());
-                names.add(device.getName()+" ("+device.getAddress()+")");
-                for(ListPreference mac : macs) {
-                    mac.setEntries(names.toArray(new String[names.size()]));
-                    mac.setEntryValues(addresses.toArray(new String[addresses.size()]));
-                }
+                if(intent.getStringExtra("type").equals("device"))
+                    addBluetoothDeviceToList((BluetoothDevice) intent.getParcelableExtra("device"));
             }
         } ,new IntentFilter("btCb"));
         BleService.discoverDevices(getActivity());
-    }
-
-    @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_settings, container, false);
     }
 
     @Override
@@ -107,8 +76,14 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
         return true;
     }
 
-    @Override
-    public boolean onPreferenceClick(Preference preference) {
-        return true;
+    public void addBluetoothDeviceToList(BluetoothDevice device){
+        if(addresses.contains(device.getAddress()))
+            return;
+        addresses.add(device.getAddress());
+        names.add(device.getName() != null? device.getName()+" ("+device.getAddress()+")" : device.getAddress());
+        for(ListPreference mac : macs) {
+            mac.setEntries(names.toArray(new String[names.size()]));
+            mac.setEntryValues(addresses.toArray(new String[addresses.size()]));
+        }
     }
 }
