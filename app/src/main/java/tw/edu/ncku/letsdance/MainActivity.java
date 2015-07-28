@@ -34,7 +34,7 @@ import android.widget.ToggleButton;
 import java.io.IOException;
 
 
-public class MainActivity extends AppCompatActivity{
+public class MainActivity extends AppCompatActivity implements SensorFragment.GestureListener{
     private final static int REQUEST_ENABLE_BT = 1;
     private Boolean btEnable = null;
     private FragmentManager fragmentManager = null;
@@ -45,6 +45,7 @@ public class MainActivity extends AppCompatActivity{
     private ToggleButton logBtn = null;
     private Menu optionMenu;
     private static final int sensorFragmentContainerID = 0;//0 to hide, R.id.MainLayout to show;
+    private GameControlFragment gameControl = new GameControlFragment();
 
     private ServiceConnection sc = new ServiceConnection() {
         @Override
@@ -60,6 +61,7 @@ public class MainActivity extends AppCompatActivity{
                 BleService.setSensorNotification(device, Sensor.ACCELEROMETER2G, true);
                 BleService.setSensorNotification(device, Sensor.GYROSCOPE_XY, true);
             }
+            gameControl.start();
         }
 
         @Override
@@ -79,7 +81,7 @@ public class MainActivity extends AppCompatActivity{
         }catch(NumberFormatException nfe){
             Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
         }
-        fragmentManager.beginTransaction().add(loggerFragment, null).commit();
+        fragmentManager.beginTransaction().add(loggerFragment, null).add(gameControl,null).commit();
         LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -291,5 +293,15 @@ public class MainActivity extends AppCompatActivity{
         SensorFragment sf = (SensorFragment) fragmentManager.findFragmentByTag(device.getAddress());
         if(sf != null)
             sf.addSensorData(sensor,p);
+    }
+
+    public void onGestureDetected(byte gesture, String mac){
+        int index = -1;
+        for(int i = 0 ; i < macs.length ; i++)
+            if(macs[i].equals(mac))
+                index = i;
+        if(index == -1)
+            return;
+        gameControl.processGesture((byte)(1<<index),gesture);
     }
 }

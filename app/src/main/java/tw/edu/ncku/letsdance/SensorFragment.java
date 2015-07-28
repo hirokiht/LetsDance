@@ -1,14 +1,12 @@
 package tw.edu.ncku.letsdance;
 
-import android.media.AudioManager;
-import android.media.ToneGenerator;
+import android.app.Activity;
 import android.os.Bundle;
 import android.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
-import android.widget.Toast;
 
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.charts.LineChart;
@@ -33,10 +31,16 @@ public class SensorFragment extends Fragment {
     private int[] minIndex = {-1, -1, -1}, maxIndex = {-1, -1, -1};
     private int curPos = 0, gesturePos = 0;
     private byte[] gestureRingBuffer = null;
-    public static final byte INVALID = 0, DOUBLE_SPIN = 1, SINGLE_SPIN = 2, OPENING = 4, EMBRACE = 8, BONUS = 0x10;
+    public static final byte INVALID = 0, DOUBLE_SPIN = 1, SINGLE_SPIN = 2, OPENING = 4, EXPAND = 8, BONUS = 0x10;
+    private GestureListener gestureCallback;
 
     private LineChart sensorChart;
     private LineData sensorData;
+
+    // Container Activity must implement this interface
+    public interface GestureListener {
+        void onGestureDetected(byte gesture, String mac);
+    }
 
     /**
      * Use this factory method to create a new instance of
@@ -66,8 +70,13 @@ public class SensorFragment extends Fragment {
     }
 
     @Override
-    public void onDestroy(){
-        super.onDestroy();
+    public void onAttach(Activity activity){
+        super.onAttach(activity);
+        try {
+            gestureCallback = (GestureListener) activity;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(activity.toString() + " must implement GestureListener");
+        }
     }
 
     public void setInterval(short interval){
@@ -115,12 +124,8 @@ public class SensorFragment extends Fragment {
         for(int i = 0 ; i < gestureRingBuffer.length && newGesture ; i++)
             if(i != gesturePos && (gestureRingBuffer[i]&gestureRingBuffer[gesturePos]) != INVALID)
                 newGesture = false;
-        if(newGesture){
-            ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_NOTIFICATION,ToneGenerator.MAX_VOLUME);
-            tg.startTone(ToneGenerator.TONE_PROP_BEEP);
-            tg.release();
-            Toast.makeText(getActivity(),"Gesture: "+gestureRingBuffer[gesturePos],Toast.LENGTH_SHORT).show();
-        }
+        if(newGesture)
+            gestureCallback.onGestureDetected(gestureRingBuffer[gesturePos],mac);
         if(gesturePos == gestureRingBuffer.length-1)
             gesturePos = 0;
         else gesturePos++;
@@ -135,7 +140,7 @@ public class SensorFragment extends Fragment {
         if(delta[1] > 290)
             return SINGLE_SPIN;
         if(delta[0] > 100)
-            return EMBRACE;
+            return EXPAND;
         if(delta[1] > 90)
             return OPENING;
         if(delta[2] > 150)
