@@ -28,7 +28,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
+import android.widget.CompoundButton;
 import android.widget.ToggleButton;
 
 import java.io.IOException;
@@ -43,6 +43,7 @@ public class MainActivity extends AppCompatActivity{
     private SensorDataLoggerFragment loggerFragment = SensorDataLoggerFragment.newInstance();
     private SharedPreferences preferences;
     private ToggleButton logBtn = null;
+    private Menu optionMenu;
     private static final int sensorFragmentContainerID = 0;//0 to hide, R.id.MainLayout to show;
 
     private ServiceConnection sc = new ServiceConnection() {
@@ -119,12 +120,6 @@ public class MainActivity extends AppCompatActivity{
     }
 
     @Override
-    protected void onStart(){
-        super.onStart();
-        logBtn = (ToggleButton) findViewById(R.id.logBtn);
-    }
-
-    @Override
     protected void onSaveInstanceState(Bundle outState) {
         finishActivity(REQUEST_ENABLE_BT);
         if(btEnable != null)
@@ -179,6 +174,24 @@ public class MainActivity extends AppCompatActivity{
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
+        optionMenu = menu;
+        logBtn = (ToggleButton) menu.findItem(R.id.logBtn).getActionView();
+        logBtn.setTextOn("Stop Log");
+        logBtn.setTextOff("Start Log");
+        logBtn.setChecked(false);
+        logBtn.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if(isChecked)
+                    return;
+                try{    //save when stop logging
+                    loggerFragment.writeToExtStorage();
+                }catch(IOException ioe){
+                    Log.d("onCheckedChanged","IOException: "+ioe.getMessage());
+                    ioe.printStackTrace();
+                }
+            }
+        });
         return true;
     }
 
@@ -201,8 +214,8 @@ public class MainActivity extends AppCompatActivity{
             BluetoothManager btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
             for(BluetoothDevice device : btManager.getConnectedDevices(BluetoothProfile.GATT))
                 sf.addBluetoothDeviceToList(device);
-            findViewById(R.id.action_settings).setVisibility(View.GONE);
-            findViewById(R.id.BtnLyt).setVisibility(View.GONE);
+            for(int i = 0 ; i < optionMenu.size() ; i++)
+                optionMenu.getItem(i).setVisible(false).collapseActionView();
             if(ab != null) {
                 ab.setDisplayHomeAsUpEnabled(true);
                 ab.setSubtitle("Settings");
@@ -224,8 +237,8 @@ public class MainActivity extends AppCompatActivity{
             super.onBackPressed();
             return;
         }
-        findViewById(R.id.action_settings).setVisibility(View.VISIBLE);
-        findViewById(R.id.BtnLyt).setVisibility(View.VISIBLE);
+        for(int i = 0 ; i < optionMenu.size() ; i++)
+            optionMenu.getItem(i).setVisible(true);
         ActionBar ab = getSupportActionBar();
         if(ab != null) {
             ab.setDisplayHomeAsUpEnabled(false);
@@ -273,19 +286,10 @@ public class MainActivity extends AppCompatActivity{
         float[] p = (sensor == Sensor.ACCELEROMETER) ? Sensor.ACCELEROMETER2G.convert(data) :
                 (sensor == Sensor.GYROSCOPE) ? Sensor.GYROSCOPE_XY.convert(data) : sensor.convert(data);
         for (String mac : macs)
-            if (logBtn.isChecked() && mac != null && mac.equals(device.getAddress()))
+            if (logBtn != null && logBtn.isChecked() && mac != null && mac.equals(device.getAddress()))
                 loggerFragment.logData(device.getAddress()+"-"+sensor.name(), p);
         SensorFragment sf = (SensorFragment) fragmentManager.findFragmentByTag(device.getAddress());
         if(sf != null)
             sf.addSensorData(sensor,p);
-    }
-
-    public void onSaveClicked(View view){
-        try{
-            loggerFragment.writeToExtStorage();
-        }catch(IOException ioe){
-            Log.d("onSaveClicked","IOException: "+ioe.getMessage());
-            ioe.printStackTrace();
-        }
     }
 }
