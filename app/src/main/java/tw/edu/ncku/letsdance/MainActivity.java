@@ -43,6 +43,7 @@ public class MainActivity extends AppCompatActivity{
     private SensorDataLoggerFragment loggerFragment = SensorDataLoggerFragment.newInstance();
     private SharedPreferences preferences;
     private ToggleButton logBtn = null;
+    private static final int sensorFragmentContainerID = 0;//0 to hide, R.id.MainLayout to show;
 
     private ServiceConnection sc = new ServiceConnection() {
         @Override
@@ -255,7 +256,7 @@ public class MainActivity extends AppCompatActivity{
             }
             if(newMac != null && newMac.length() == 17 && !newMac.equals(macs[i])){
                 macs[i] = newMac;
-                ft.add(R.id.MainLayout, SensorFragment.newInstance(macs[i], interval), macs[i]);
+                ft.add(sensorFragmentContainerID, SensorFragment.newInstance(macs[i], interval), macs[i]);
             }
         }
         ft.commit();
@@ -264,7 +265,7 @@ public class MainActivity extends AppCompatActivity{
     private void addBtDependentComponents(){
         for(String mac : macs)
             if(mac != null && mac.length() == 17 && fragmentManager.findFragmentByTag(mac) == null)
-                fragmentManager.beginTransaction().add(R.id.MainLayout, SensorFragment.newInstance(mac,interval), mac).commit();
+                fragmentManager.beginTransaction().add(sensorFragmentContainerID, SensorFragment.newInstance(mac,interval), mac).commit();
         getApplication().bindService(new Intent(this, BleService.class), sc, BIND_AUTO_CREATE);
     }
 
