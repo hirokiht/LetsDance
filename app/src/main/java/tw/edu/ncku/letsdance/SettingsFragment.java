@@ -63,9 +63,10 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
             return;
         addresses.add(device.getAddress());
         names.add(device.getName() != null? device.getName()+" ("+device.getAddress()+")" : device.getAddress());
-        for(ListPreference mac : macs) {
-            mac.setEntries(names.toArray(new String[names.size()]));
-            mac.setEntryValues(addresses.toArray(new String[addresses.size()]));
-        }
+        if(macs != null)
+            for(ListPreference mac : macs) {
+                mac.setEntries(names.toArray(new String[names.size()]));
+                mac.setEntryValues(addresses.toArray(new String[addresses.size()]));
+            }
     }
 }
