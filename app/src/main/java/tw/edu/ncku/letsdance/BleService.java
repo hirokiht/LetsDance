@@ -55,7 +55,12 @@ public class BleService extends Service {
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             byte[] val = characteristic.getValue();
-            Sensor sensor = Sensor.getFromDataUuid(characteristic.getUuid());
+            Sensor sensor;
+            try{
+                sensor = Sensor.getFromDataUuid(characteristic.getUuid());
+            }catch(RuntimeException re){
+                sensor = null;
+            }
             bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "read").putExtra("read", sensor).putExtra("data", val));
             super.onCharacteristicRead(gatt, characteristic, status);
@@ -205,6 +210,28 @@ public class BleService extends Service {
                 if(service == null)
                     return false;
                 BluetoothGattCharacteristic characteristic = service.getCharacteristic(sensor.getData());
+                return characteristic!=null && btGatt.readCharacteristic(characteristic);
+            }
+        };
+        return busy.get(device)? requests.get(device).offer(request) : request.execute();
+    }
+
+    public static boolean notifyDevice(final String device){
+        return notifyDevice(btAdapter.getRemoteDevice(device));
+    }
+
+    public static boolean notifyDevice(final BluetoothDevice device){
+        final BluetoothGatt btGatt = btGatts.get(device);
+        if(btGatt == null || !busy.containsKey(device))
+            return false;
+        BtRequest request = new BtRequest("notify " + device.getAddress()) {
+            @Override
+            boolean execute() {
+                busy.put(device,true);
+                BluetoothGattService service = btGatt.getService(SensorTagGatt.UUID_NOTIFY_SERV);
+                if(service == null)
+                    return false;
+                BluetoothGattCharacteristic characteristic = service.getCharacteristic(SensorTagGatt.UUID_NOTIFY_DATA);
                 return characteristic!=null && btGatt.readCharacteristic(characteristic);
             }
         };

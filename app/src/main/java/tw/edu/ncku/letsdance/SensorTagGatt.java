@@ -102,5 +102,8 @@ public class SensorTagGatt {
       UUID_GYR_PERI = fromString("f000aa53-0451-4000-b000-000000000000"), // Period in tens of milliseconds
 
       UUID_KEY_SERV = fromString("0000ffe0-0000-1000-8000-00805f9b34fb"), 
-      UUID_KEY_DATA = fromString("0000ffe1-0000-1000-8000-00805f9b34fb");
+      UUID_KEY_DATA = fromString("0000ffe1-0000-1000-8000-00805f9b34fb"),
+
+      UUID_NOTIFY_SERV = fromString("0000fff0-0000-1000-8000-00805f9b34fb"),
+      UUID_NOTIFY_DATA = fromString("0000fff1-0000-1000-8000-00805f9b34fb");
 }

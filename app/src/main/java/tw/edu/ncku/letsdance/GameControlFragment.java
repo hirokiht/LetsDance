@@ -1,6 +1,7 @@
 package tw.edu.ncku.letsdance;
 
 
+import android.app.Activity;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.ToneGenerator;
@@ -9,6 +10,10 @@ import android.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
 import static tw.edu.ncku.letsdance.SensorFragment.*;
 
 
@@ -20,13 +25,17 @@ public class GameControlFragment extends Fragment {
     private boolean started = false;
     private MediaPlayer musicPlayer;
     private ToneGenerator toneGenerator;
-    private static final int[]  timings = {16200,19100,20300,23000,24250,26150,28000,30350,33350,35200,37150,39100,41100,43000,44350,48300,52150,56050,59400,63200,67100,71000};
-    private static final byte[] gestures = {OPENING,OPENING,OPENING,EXPAND,EXPAND,EXPAND,EXPAND,OPENING,OPENING,OPENING,EXPAND,EXPAND,EXPAND,EXPAND,DOUBLE_SPIN,DOUBLE_SPIN,SINGLE_SPIN,SINGLE_SPIN,DOUBLE_SPIN,DOUBLE_SPIN,SINGLE_SPIN,SINGLE_SPIN};
-    private static final byte[] sources = {0xF,0xF,0xF,0x5,0xA,0x5,0xA,0xF,0xF,0xF,0x5,0xA,0x5,0xA,0xF,0xF,0x1,0x8,0xF,0xF,0x1,0x8};
+    private static final int[]  timings = {16200,19100,20300,23000,24250,26150,28000,30350,33350,35200,
+            37150,39100,41100,43000,44350,48300,52150,56050,59400,63200,67100,71000,72300,73300,74300,75300};
+    private static final byte[] gestures = {OPENING,OPENING,OPENING,EXPAND,EXPAND,EXPAND,EXPAND,OPENING,OPENING,OPENING,
+        EXPAND,EXPAND,EXPAND,EXPAND,DOUBLE_SPIN,DOUBLE_SPIN,SINGLE_SPIN,SINGLE_SPIN,DOUBLE_SPIN,DOUBLE_SPIN,SINGLE_SPIN,SINGLE_SPIN,BONUS,BONUS,BONUS,BONUS};
+    private static final byte[] sources = {0xF,0xF,0xF,0x5,0xA,0x5,0xA,0xF,0xF,0xF,
+            0x5,0xA,0x5,0xA,0xF,0xF,0x1,0x8,0xF,0xF,0x1,0x8,0xF,0xF,0xF,0xF};
     private byte[] hits = new byte[22];
+    private NotifyListener notifyCallback;
 
-    public GameControlFragment() {
-        // Required empty public constructor
+    public interface NotifyListener{
+        void onNotifyDevices(byte devices);
     }
 
     @Override
@@ -36,6 +45,16 @@ public class GameControlFragment extends Fragment {
         toneGenerator = new ToneGenerator(AudioManager.STREAM_NOTIFICATION,ToneGenerator.MAX_VOLUME);
         if(started)
             start();
+    }
+
+    @Override
+    public void onAttach(Activity activity){
+        super.onAttach(activity);
+        try {
+            notifyCallback = (NotifyListener) activity;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(activity.toString() + " must implement NotifyListener");
+        }
     }
 
     @Override
@@ -66,8 +85,26 @@ public class GameControlFragment extends Fragment {
 
     public void start(){
         started = true;
-        if(musicPlayer != null)
-            musicPlayer.start();
+        if(musicPlayer == null)
+            return;
+        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(2);
+        musicPlayer.start();
+        for(int i = 0 ; i < timings.length ; i++) {
+            final byte devices = sources[i];
+            executor.schedule(new Runnable() {
+                @Override
+                public void run() {
+                    notifyCallback.onNotifyDevices(devices);
+                }
+            }, timings[i], TimeUnit.MILLISECONDS);
+            if(i >= 22)
+                executor.schedule(new Runnable() {
+                    @Override
+                    public void run() {
+                        notifyCallback.onNotifyDevices(devices);
+                    }
+                }, timings[i]+500, TimeUnit.MILLISECONDS);
+        }
     }
 
     public void stop(){

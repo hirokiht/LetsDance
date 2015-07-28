@@ -34,7 +34,7 @@ import android.widget.ToggleButton;
 import java.io.IOException;
 
 
-public class MainActivity extends AppCompatActivity implements SensorFragment.GestureListener{
+public class MainActivity extends AppCompatActivity implements SensorFragment.GestureListener, GameControlFragment.NotifyListener{
     private final static int REQUEST_ENABLE_BT = 1;
     private Boolean btEnable = null;
     private FragmentManager fragmentManager = null;
@@ -86,12 +86,12 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
             @Override
             public void onReceive(Context context, Intent intent) {
                 String type = intent.getStringExtra("type");
-                if(fragmentManager.findFragmentByTag("settingsFragment") != null && type.equals("device"))
-                    ((SettingsFragment)fragmentManager.findFragmentByTag("settingsFragment"))
+                if (fragmentManager.findFragmentByTag("settingsFragment") != null && type.equals("device"))
+                    ((SettingsFragment) fragmentManager.findFragmentByTag("settingsFragment"))
                             .addBluetoothDeviceToList((BluetoothDevice) intent.getParcelableExtra("device"));
-                if (type.equals("read") || type.equals("notify"))
+                if ((type.equals("read") || type.equals("notify")) && intent.getSerializableExtra(type) != null)
                     updateDeviceSensorData((BluetoothDevice) intent.getParcelableExtra("btDevice"),
-                        (Sensor) intent.getSerializableExtra(type), intent.getByteArrayExtra("data"));
+                            (Sensor) intent.getSerializableExtra(type), intent.getByteArrayExtra("data"));
             }
         }, new IntentFilter("btCb"));
         setContentView(R.layout.activity_main);
@@ -293,6 +293,14 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
         SensorFragment sf = (SensorFragment) fragmentManager.findFragmentByTag(device.getAddress());
         if(sf != null)
             sf.addSensorData(sensor,p);
+    }
+
+    public void onNotifyDevices(byte devices){
+        if(devices < 0 || devices > 0xF)
+            return;
+        for(int i = 0 ; i < macs.length ; i++)
+            if((devices&(1<<i)) != 0)
+                BleService.notifyDevice(macs[i]);
     }
 
     public void onGestureDetected(byte gesture, String mac){
