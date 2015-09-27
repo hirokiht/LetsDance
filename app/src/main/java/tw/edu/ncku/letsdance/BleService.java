@@ -1,5 +1,6 @@
 package tw.edu.ncku.letsdance;
 
+import android.annotation.TargetApi;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -135,7 +136,8 @@ public class BleService extends Service {
     public static void discoverDevices(Context ctx){
         final LocalBroadcastManager bcastManager = LocalBroadcastManager.getInstance(ctx);
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            BluetoothAdapter.getDefaultAdapter().getBluetoothLeScanner().startScan(new ScanCallback() {
+            btAdapter.getBluetoothLeScanner().startScan(new ScanCallback() {
+                @TargetApi(Build.VERSION_CODES.LOLLIPOP)
                 @Override
                 public void onScanResult(int callbackType, ScanResult result) {
                     bcastManager.sendBroadcast(new Intent("btCb").putExtra("type","device")

@@ -77,7 +77,9 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
         macs = new String[]{ preferences.getString("mac0",null),preferences.getString("mac1",null),
                 preferences.getString("mac2",null), preferences.getString("mac3",null) };
         try{
-            interval = Short.parseShort(preferences.getString("interval",null));
+            String intervalStr = preferences.getString("interval",null);
+            if(intervalStr != null)
+                interval = Short.parseShort(intervalStr);
         }catch(NumberFormatException nfe){
             Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
         }
@@ -127,6 +129,18 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
         if(btEnable != null)
             outState.putBoolean("btEnable",btEnable);
         super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    protected void onPause(){
+        gameControl.stop();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume(){
+        gameControl.start();
+        super.onResume();
     }
 
     @Override
@@ -247,7 +261,8 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
             ab.setSubtitle(null);
         }
         try{
-            short newInterval = Short.parseShort(preferences.getString("interval", null));
+            String intervalStr = preferences.getString("interval", null);
+            short newInterval = intervalStr==null? interval : Short.parseShort(intervalStr);
             if(newInterval != interval){
                 interval = newInterval;
                 for(String mac : macs)
@@ -308,8 +323,12 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
         for(int i = 0 ; i < macs.length ; i++)
             if(macs[i].equals(mac))
                 index = i;
-        if(index == -1)
+        if(index == -1) {
+            Log.e("onGestureDetected","Unrecognized device!");
             return;
-        gameControl.processGesture((byte)(1<<index),gesture);
+        }
+        if(gameControl.processGesture((byte)(1<<index),gesture))
+            Log.d("onGestureDetected","Correct Gesture "+gesture+" detected!");
+        Log.d("onGestureDetected","Gesture "+gesture+" detected from "+mac+" at "+gameControl.getMusicTime());
     }
 }

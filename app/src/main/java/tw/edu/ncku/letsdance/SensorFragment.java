@@ -120,11 +120,9 @@ public class SensorFragment extends Fragment {
         else curPos++;
         addEntry(deg);
         gestureRingBuffer[gesturePos] = gestureDetection();
-        boolean newGesture = gestureRingBuffer[gesturePos] != INVALID;
-        for(int i = 0 ; i < gestureRingBuffer.length && newGesture ; i++)
-            if(i != gesturePos && (gestureRingBuffer[i]&gestureRingBuffer[gesturePos]) != INVALID)
-                newGesture = false;
-        if(newGesture)
+        if(gestureRingBuffer[gesturePos] != INVALID && gestureRingBuffer[gesturePos] == gestureRingBuffer[gesturePos == 0? gestureRingBuffer.length-1 : gesturePos-1])
+            return;
+        if(gestureRingBuffer[gesturePos] != INVALID)
             gestureCallback.onGestureDetected(gestureRingBuffer[gesturePos],mac);
         if(gesturePos == gestureRingBuffer.length-1)
             gesturePos = 0;

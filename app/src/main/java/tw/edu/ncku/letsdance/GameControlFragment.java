@@ -31,8 +31,9 @@ public class GameControlFragment extends Fragment {
         EXPAND,EXPAND,EXPAND,EXPAND,DOUBLE_SPIN,DOUBLE_SPIN,SINGLE_SPIN,SINGLE_SPIN,DOUBLE_SPIN,DOUBLE_SPIN,SINGLE_SPIN,SINGLE_SPIN,BONUS,BONUS,BONUS,BONUS};
     private static final byte[] sources = {0xF,0xF,0xF,0x5,0xA,0x5,0xA,0xF,0xF,0xF,
             0x5,0xA,0x5,0xA,0xF,0xF,0x1,0x8,0xF,0xF,0x1,0x8,0xF,0xF,0xF,0xF};
-    private byte[] hits = new byte[22];
+    private byte[] hits = new byte[timings.length];
     private NotifyListener notifyCallback;
+    ScheduledThreadPoolExecutor executor;
 
     public interface NotifyListener{
         void onNotifyDevices(byte devices);
@@ -67,27 +68,31 @@ public class GameControlFragment extends Fragment {
         return score;
     }
 
+    public int getMusicTime(){
+        return musicPlayer.isPlaying()? musicPlayer.getCurrentPosition() : 0;
+    }
+
     public boolean processGesture(byte source, byte gesture){
         if(source < 0 || source > 0xF)
             return false;
-        int time = musicPlayer.getCurrentPosition();
-        for(int i = 0 ; i < timings.length ; i++){
-            if(time < timings[i])   //sorted timing must be used for this method to work
+        int time = getMusicTime();
+        for(int i = 0 ; i < timings.length && timings[i] < time ; i++){
+            if(timings[i]+500 < time)   //sorted timing must be used for this method to work
                 continue;
-            if(time > timings[i]+1000 || (source&sources[i]) == 0 || (gesture&gestures[i]) == 0)
-                return false;
+            if((source&sources[i]) == 0 || (gesture&gestures[i]) == 0)
+                continue;
             hits[i]++;
-            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP);
+            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2);
             return true;
         }
         return false;
     }
 
     public void start(){
-        started = true;
         if(musicPlayer == null)
             return;
-        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(2);
+        started = true;
+        executor = new ScheduledThreadPoolExecutor(2);
         musicPlayer.start();
         for(int i = 0 ; i < timings.length ; i++) {
             final byte devices = sources[i];
@@ -109,5 +114,7 @@ public class GameControlFragment extends Fragment {
 
     public void stop(){
         started = false;
+        musicPlayer.stop();
+        executor.shutdownNow();
     }
 }
