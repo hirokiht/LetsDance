@@ -9,19 +9,13 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
 import android.preference.PreferenceManager;
-import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -34,7 +28,7 @@ import android.widget.ToggleButton;
 import java.io.IOException;
 
 
-public class MainActivity extends AppCompatActivity implements SensorFragment.GestureListener, GameControlFragment.NotifyListener{
+public class MainActivity extends AppCompatActivity implements SensorFragment.GestureListener, GameControlFragment.NotifyListener, BleFragment.BleEventListener{
     private final static int REQUEST_ENABLE_BT = 1;
     private Boolean btEnable = null;
     private FragmentManager fragmentManager = null;
@@ -46,28 +40,7 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
     private Menu optionMenu;
     private static final int sensorFragmentContainerID = 0;//0 to hide, R.id.MainLayout to show;
     private GameControlFragment gameControl = new GameControlFragment();
-
-    private ServiceConnection sc = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            for(String mac : macs) {
-                if(mac == null || mac.length() != 17)
-                    continue;
-                BluetoothDevice device = BleService.connectGattDevice(MainActivity.this, mac);
-                BleService.enableSensor(device, Sensor.ACCELEROMETER2G);
-                BleService.enableSensor(device, Sensor.GYROSCOPE_XY);
-                BleService.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER2G, interval);
-                BleService.setSensorNotificationPeriod(device, Sensor.GYROSCOPE_XY, interval);
-                BleService.setSensorNotification(device, Sensor.ACCELEROMETER2G, true);
-                BleService.setSensorNotification(device, Sensor.GYROSCOPE_XY, true);
-            }
-            gameControl.start();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-        }
-    };
+    private static BleFragment bleFragment = new BleFragment();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,19 +56,7 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
         }catch(NumberFormatException nfe){
             Log.e("onCreateSensorFragment", "Unable to parse interval string into short!");
         }
-        fragmentManager.beginTransaction().add(loggerFragment, null).add(gameControl,null).commit();
-        LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                String type = intent.getStringExtra("type");
-                if (fragmentManager.findFragmentByTag("settingsFragment") != null && type.equals("device"))
-                    ((SettingsFragment) fragmentManager.findFragmentByTag("settingsFragment"))
-                            .addBluetoothDeviceToList((BluetoothDevice) intent.getParcelableExtra("device"));
-                if ((type.equals("read") || type.equals("notify")) && intent.getSerializableExtra(type) != null)
-                    updateDeviceSensorData((BluetoothDevice) intent.getParcelableExtra("btDevice"),
-                            (Sensor) intent.getSerializableExtra(type), intent.getByteArrayExtra("data"));
-            }
-        }, new IntentFilter("btCb"));
+        fragmentManager.beginTransaction().add(loggerFragment, null).add(gameControl,null).add(bleFragment,null).commit();
         setContentView(R.layout.activity_main);
         if(savedInstanceState != null && savedInstanceState.containsKey("btEnable") &&
                 !savedInstanceState.getBoolean("btEnable") ) {  //previously denied bt or no bt
@@ -226,7 +187,7 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
                     ft.hide(fragmentManager.findFragmentByTag(mac));
             SettingsFragment sf = new SettingsFragment();
             ft.add(R.id.MainLayout, sf, "settingsFragment").addToBackStack(null).commit();
-            BleService.discoverDevices(this);
+            bleFragment.discoverDevices();
             BluetoothManager btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
             for(BluetoothDevice device : btManager.getConnectedDevices(BluetoothProfile.GATT))
                 sf.addBluetoothDeviceToList(device);
@@ -267,8 +228,8 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
                 interval = newInterval;
                 for(String mac : macs)
                     if(mac != null && mac.length() == 17) {
-                        BleService.setSensorNotificationPeriod(mac, Sensor.ACCELEROMETER2G, interval);
-                        BleService.setSensorNotificationPeriod(mac, Sensor.GYROSCOPE_XY, interval);
+                        BleFragment.setSensorNotificationPeriod(mac, Sensor.ACCELEROMETER2G, interval);
+                        BleFragment.setSensorNotificationPeriod(mac, Sensor.GYROSCOPE_XY, interval);
                         if(fragmentManager.findFragmentByTag(mac) != null)
                             ((SensorFragment) fragmentManager.findFragmentByTag(mac)).setInterval(interval);
                     }
@@ -296,7 +257,18 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
         for(String mac : macs)
             if(mac != null && mac.length() == 17 && fragmentManager.findFragmentByTag(mac) == null)
                 fragmentManager.beginTransaction().add(sensorFragmentContainerID, SensorFragment.newInstance(mac,interval), mac).commit();
-        getApplication().bindService(new Intent(this, BleService.class), sc, BIND_AUTO_CREATE);
+        for(String mac : macs) {
+            if(mac == null || mac.length() != 17)
+                continue;
+            BluetoothDevice device = bleFragment.connectGattDevice( getApplicationContext(), mac );
+            BleFragment.enableSensor(device, Sensor.ACCELEROMETER2G);
+            BleFragment.enableSensor(device, Sensor.GYROSCOPE_XY);
+            BleFragment.setSensorNotificationPeriod(device, Sensor.ACCELEROMETER2G, interval);
+            BleFragment.setSensorNotificationPeriod(device, Sensor.GYROSCOPE_XY, interval);
+            BleFragment.setSensorNotification(device, Sensor.ACCELEROMETER2G, true);
+            BleFragment.setSensorNotification(device, Sensor.GYROSCOPE_XY, true);
+        }
+        gameControl.start();
     }
 
     private void updateDeviceSensorData(BluetoothDevice device, Sensor sensor, byte[] data){
@@ -304,7 +276,7 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
                 (sensor == Sensor.GYROSCOPE) ? Sensor.GYROSCOPE_XY.convert(data) : sensor.convert(data);
         for (String mac : macs)
             if (logBtn != null && logBtn.isChecked() && mac != null && mac.equals(device.getAddress()))
-                loggerFragment.logData(device.getAddress()+"-"+sensor.name(), p);
+                loggerFragment.logData(device.getAddress() + "-" + sensor.name(), p);
         SensorFragment sf = (SensorFragment) fragmentManager.findFragmentByTag(device.getAddress());
         if(sf != null)
             sf.addSensorData(sensor,p);
@@ -315,7 +287,7 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
             return;
         for(int i = 0 ; i < macs.length ; i++)
             if((devices&(1<<i)) != 0)
-                BleService.notifyDevice(macs[i]);
+                BleFragment.notifyDevice(macs[i]);
     }
 
     public void onGestureDetected(byte gesture, String mac){
@@ -330,5 +302,15 @@ public class MainActivity extends AppCompatActivity implements SensorFragment.Ge
         if(gameControl.processGesture((byte)(1<<index),gesture))
             Log.d("onGestureDetected","Correct Gesture "+gesture+" detected!");
         Log.d("onGestureDetected","Gesture "+gesture+" detected from "+mac+" at "+gameControl.getMusicTime());
+    }
+
+    public void onBleEvent(Intent intent){
+        String type = intent.getStringExtra("type");
+        if (fragmentManager.findFragmentByTag("settingsFragment") != null && type.equals("device"))
+            ((SettingsFragment) fragmentManager.findFragmentByTag("settingsFragment"))
+                    .addBluetoothDeviceToList((BluetoothDevice) intent.getParcelableExtra("device"));
+        if ((type.equals("read") || type.equals("notify")) && intent.getSerializableExtra(type) != null)
+            updateDeviceSensorData((BluetoothDevice) intent.getParcelableExtra("btDevice"),
+                    (Sensor) intent.getSerializableExtra(type), intent.getByteArrayExtra("data"));
     }
 }

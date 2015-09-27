@@ -18,10 +18,5 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".BleService"
-            android:enabled="true"
-            android:exported="false" >
-        </service>
     </application>
 </manifest>

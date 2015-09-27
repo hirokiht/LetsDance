@@ -1,7 +1,7 @@
 package tw.edu.ncku.letsdance;
 
 import android.annotation.TargetApi;
-import android.app.Service;
+import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -14,24 +14,33 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Binder;
 import android.os.Build;
-import android.os.IBinder;
-import android.support.v4.content.LocalBroadcastManager;
+import android.os.Bundle;
+import android.app.Fragment;
 import android.support.v4.util.SimpleArrayMap;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
 
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.UUID;
 
-public class BleService extends Service {
+/**
+ * A simple {@link Fragment} subclass.
+ * Activities that contain this fragment must implement the
+ * {@link tw.edu.ncku.letsdance.BleFragment.BleEventListener} interface
+ * to handle interaction events.
+ */
+public class BleFragment extends Fragment {
+    private BleEventListener mListener;
     private static BluetoothAdapter btAdapter = BluetoothAdapter.getDefaultAdapter();
-    private static LocalBroadcastManager bcastManager = null;
     private static SimpleArrayMap<BluetoothDevice,BluetoothGatt> btGatts = new SimpleArrayMap<>();
     private static SimpleArrayMap<BluetoothDevice,Boolean> busy = new SimpleArrayMap<>();
     private static SimpleArrayMap<BluetoothDevice,Queue<BtRequest>> requests = new SimpleArrayMap<>();
 
-    public static final BluetoothGattCallback btGattCb = new BluetoothGattCallback() {
+    public final BluetoothGattCallback btGattCb = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             if(newState == BluetoothProfile.STATE_CONNECTED){
@@ -41,13 +50,13 @@ public class BleService extends Service {
                 requests.remove(gatt.getDevice());
             }
             super.onConnectionStateChange(gatt, status, newState);
-            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice",gatt.getDevice())
-                    .putExtra("type","connection").putExtra("connection", status));
+            mListener.onBleEvent(new Intent().putExtra("btDevice", gatt.getDevice())
+                    .putExtra("type", "connection").putExtra("connection", status));
         }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
+            mListener.onBleEvent(new Intent().putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "ready").putExtra("ready", status == BluetoothGatt.GATT_SUCCESS));
             super.onServicesDiscovered(gatt, status);
             pollRequests(gatt.getDevice());
@@ -62,7 +71,7 @@ public class BleService extends Service {
             }catch(RuntimeException re){
                 sensor = null;
             }
-            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
+            mListener.onBleEvent(new Intent().putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "read").putExtra("read", sensor).putExtra("data", val));
             super.onCharacteristicRead(gatt, characteristic, status);
             pollRequests(gatt.getDevice());
@@ -76,7 +85,7 @@ public class BleService extends Service {
             }catch(RuntimeException re){
                 sensor = null;
             }
-            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
+            mListener.onBleEvent(new Intent().putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "write").putExtra("write", sensor)
                     .putExtra("status", status == BluetoothGatt.GATT_SUCCESS));
             super.onCharacteristicWrite(gatt, characteristic, status);
@@ -87,7 +96,7 @@ public class BleService extends Service {
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             byte[] val = characteristic.getValue();
             Sensor sensor = Sensor.getFromDataUuid(characteristic.getUuid());
-            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
+            mListener.onBleEvent(new Intent().putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "notify").putExtra("notify", sensor).putExtra("data", val));
             super.onCharacteristicChanged(gatt, characteristic);
         }
@@ -96,7 +105,7 @@ public class BleService extends Service {
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             byte[] val = descriptor.getValue();
             Sensor sensor = Sensor.getFromDataUuid(descriptor.getCharacteristic().getUuid());
-            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
+            mListener.onBleEvent(new Intent().putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "readDesc").putExtra("readDesc", sensor).putExtra("data", val));
             super.onDescriptorRead(gatt, descriptor, status);
             pollRequests(gatt.getDevice());
@@ -105,7 +114,7 @@ public class BleService extends Service {
         @Override
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             Sensor sensor = Sensor.getFromDataUuid(descriptor.getCharacteristic().getUuid());
-            bcastManager.sendBroadcast(new Intent("btCb").putExtra("btDevice", gatt.getDevice())
+            mListener.onBleEvent(new Intent().putExtra("btDevice", gatt.getDevice())
                     .putExtra("type", "writeDesc").putExtra("writeDesc", sensor)
                     .putExtra("status", status == BluetoothGatt.GATT_SUCCESS));
             super.onDescriptorWrite(gatt, descriptor, status);
@@ -113,16 +122,16 @@ public class BleService extends Service {
         }
     };
 
-    public BleService() {
-        bcastManager = LocalBroadcastManager.getInstance(this);
-    }
-
     private static abstract class BtRequest{
         public String action;
         public BtRequest(String action){
             this.action = action;
         }
         abstract boolean execute();
+    }
+
+    public BleFragment() {
+        // Required empty public constructor
     }
 
     private static void pollRequests(BluetoothDevice device){
@@ -133,15 +142,14 @@ public class BleService extends Service {
         else requests.get(device).poll().execute();
     }
 
-    public static void discoverDevices(Context ctx){
-        final LocalBroadcastManager bcastManager = LocalBroadcastManager.getInstance(ctx);
+    public void discoverDevices(){
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             btAdapter.getBluetoothLeScanner().startScan(new ScanCallback() {
                 @TargetApi(Build.VERSION_CODES.LOLLIPOP)
                 @Override
                 public void onScanResult(int callbackType, ScanResult result) {
-                    bcastManager.sendBroadcast(new Intent("btCb").putExtra("type","device")
-                    .putExtra("device",result.getDevice()));
+                    mListener.onBleEvent(new Intent().putExtra("type", "device")
+                            .putExtra("device", result.getDevice()));
                     super.onScanResult(callbackType, result);
                 }
             });
@@ -150,20 +158,20 @@ public class BleService extends Service {
             btAdapter.startLeScan(new BluetoothAdapter.LeScanCallback() {
                 @Override
                 public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
-                    bcastManager.sendBroadcast(new Intent("btCb").putExtra("type","device")
+                    mListener.onBleEvent(new Intent().putExtra("type","device")
                             .putExtra("device",device));
                 }
             });
         }
     }
 
-    public static BluetoothDevice connectGattDevice(Context ctx, String mac){
+    public BluetoothDevice connectGattDevice(Context ctx, String mac){
         final BluetoothDevice device = btAdapter.getRemoteDevice(mac);
         connectGattDevice(ctx, device);
         return device;
     }
 
-    public static void connectGattDevice(Context ctx, BluetoothDevice device){
+    public void connectGattDevice(Context ctx, BluetoothDevice device){
         if(device.getBondState() != BluetoothDevice.BOND_NONE)
             return;
         BluetoothGatt gatt = device.connectGatt(ctx, false, btGattCb);
@@ -287,22 +295,44 @@ public class BleService extends Service {
         return busy.get(device)? requests.get(device).offer(request) : request.execute();
     }
 
+
     @Override
-    public void onCreate(){
-        super.onCreate();
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        TextView textView = new TextView(getActivity());
+        textView.setText(R.string.hello_blank_fragment);
+        return textView;
     }
 
     @Override
-    public void onDestroy(){
-        for(int i = 0 ; i < btGatts.size() ; i++)
-            btGatts.valueAt(i).disconnect();
-        super.onDestroy();
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        try {
+            mListener = (BleEventListener) activity;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(activity.toString()
+                    + " must implement BleEventListener");
+        }
     }
 
     @Override
-    public IBinder onBind(Intent intent) {
-        if(btAdapter == null || !btAdapter.isEnabled())
-            throw new UnsupportedOperationException("Bluetooth adapter is not enabled!");    //the Activity should enable adapter first!
-        return new Binder();
+    public void onDetach() {
+        super.onDetach();
+        mListener = null;
     }
+
+    /**
+     * This interface must be implemented by activities that contain this
+     * fragment to allow an interaction in this fragment to be communicated
+     * to the activity and potentially other fragments contained in that
+     * activity.
+     * <p/>
+     * See the Android Training lesson <a href=
+     * "http://developer.android.com/training/basics/fragments/communicating.html"
+     * >Communicating with Other Fragments</a> for more information.
+     */
+    public interface BleEventListener {
+        void onBleEvent(Intent intent);
+    }
+
 }
