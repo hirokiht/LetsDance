@@ -15,13 +15,8 @@ import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
-import android.os.Bundle;
 import android.app.Fragment;
 import android.support.v4.util.SimpleArrayMap;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -295,15 +290,6 @@ public class BleFragment extends Fragment {
         return busy.get(device)? requests.get(device).offer(request) : request.execute();
     }
 
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        TextView textView = new TextView(getActivity());
-        textView.setText(R.string.hello_blank_fragment);
-        return textView;
-    }
-
     @Override
     public void onAttach(Activity activity) {
         super.onAttach(activity);
@@ -317,6 +303,8 @@ public class BleFragment extends Fragment {
 
     @Override
     public void onDetach() {
+        for(int i = 0 ; i < btGatts.size() ; i++)
+            btGatts.valueAt(i).disconnect();
         super.onDetach();
         mListener = null;
     }
